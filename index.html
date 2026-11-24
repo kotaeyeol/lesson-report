@@ -135,6 +135,13 @@ pre{background:#0f1f38;color:#dbe6f7;border-radius:10px;padding:10px;font-size:1
 .caution ul{margin:6px 0 8px;padding-left:18px;display:grid;gap:4px;font-size:13px;color:var(--text)}
 .agree{display:flex!important;gap:8px;align-items:flex-start;font-size:13.5px;color:var(--ink);font-weight:600;cursor:pointer}
 .agree input{width:18px;height:18px;margin:1px 0 0;flex:none;accent-color:var(--blue)}
+.kguide{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:0 0 10px;background:var(--field)}
+.kguide summary{cursor:pointer;font-size:14px;color:var(--ink);min-height:28px}
+.kguide ol{margin:8px 0;padding-left:22px;display:grid;gap:6px;counter-reset:none}
+.kguide li{font-size:13.5px}.kguide li b{display:block;color:var(--ink)}.kguide li span{font-size:12.5px;color:var(--muted)}
+.kguide li::marker{color:var(--blue);font-weight:700}
+.kbtn{display:flex;align-items:center;justify-content:center;min-height:44px;border-radius:10px;background:var(--blue);color:light-dark(#fff,#0d1626);font-weight:600;text-decoration:none;font-size:15px}
+.kblock{margin-bottom:10px}
 .hist{display:grid;gap:6px;margin:4px 0 12px}.hist>b{font-size:14px;color:var(--ink)}
 #histList{display:grid;gap:6px;max-height:220px;overflow:auto}
 .hbtn{display:grid;text-align:left;gap:1px;min-height:52px;padding:8px 12px;border-radius:12px}.hbtn b{font-size:14.5px}.hbtn span{font-size:12.5px;color:var(--muted)}
@@ -412,13 +419,30 @@ pre{background:#0f1f38;color:#dbe6f7;border-radius:10px;padding:10px;font-size:1
         </ul>
         <label class="agree"><input type="checkbox" id="aiAgree"> 위 내용을 확인했고, 요약 정보 전송에 동의합니다</label>
       </div>
-      <label id="keyLabel">Gemini API 키 <span style="font-size:12px">(이 브라우저에만 저장돼요)</span><input id="apiKey" type="password" autocomplete="off" placeholder="AIza…"></label>
-      <p class="hint" id="keyHint" style="margin:4px 0 8px">키가 없다면 <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>에서 무료로 발급받을 수 있어요. (aistudio.google.com/apikey)</p>
-      <label>모델<select id="aiModel"></select></label>
-      <label id="customWrap" style="margin-top:8px" hidden>모델 이름 직접 입력<input id="aiModelCustom" placeholder="예: gemini-3.5-flash"></label>
-      <div class="st" id="modelSt"></div>
-      <div class="pair" style="margin-top:8px"><button class="main" id="aiRun" type="button">AI 맞춤 조언 받기</button><button id="aiCopy" type="button">질문만 복사</button></div>
-      <div class="st" id="aiSt" role="status"></div>
+      <details class="kguide" id="keyGuide">
+        <summary>처음이세요? <b>API 키 발급 방법</b> (약 3분, 무료)</summary>
+        <ol>
+          <li><b>Google AI Studio 열기</b><span>아래 파란 버튼을 누르면 새 탭에서 열려요.</span></li>
+          <li><b>개인 구글 계정으로 로그인</b><span>학교·교육청 계정은 막혀 있을 수 있어요. 개인 Gmail 계정을 쓰세요.</span></li>
+          <li><b>약관에 동의</b><span>처음 들어가면 이용약관 창이 나와요. 체크하고 계속을 누르세요.</span></li>
+          <li><b>[API 키 만들기] 누르기</b><span>영어 화면이면 [Create API key]예요. 프로젝트를 고르라고 하면 기본으로 나온 것을 고르면 돼요.</span></li>
+          <li><b>키 복사하기</b><span>AIza로 시작하는 긴 글자가 나와요. 옆의 복사 버튼을 누르세요.</span></li>
+          <li><b>이 화면으로 돌아와 붙여넣기</b><span>아래 [Gemini API 키] 칸에 Ctrl+V 하면 끝!</span></li>
+        </ol>
+        <a class="kbtn" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio 열기 (새 탭)</a>
+        <p class="hint" style="margin:8px 0 0">카드 등록 없이 무료로 쓸 수 있어요. 화면 구성은 Google 사정에 따라 조금 바뀔 수 있어요.<br>키는 비밀번호처럼 다른 사람과 공유하지 마세요.</p>
+      </details>
+      <div class="kblock" id="keyBlock">
+        <label id="keyLabel">Gemini API 키 <span style="font-size:12px">(이 브라우저에만 저장돼요)</span><input id="apiKey" type="password" autocomplete="off" placeholder="AIza…로 시작하는 키를 붙여넣기"></label>
+        <div class="st" id="modelSt"></div>
+      </div>
+      <div class="kblock" id="modelBlock">
+        <label>모델<select id="aiModel"></select></label>
+        <label id="customWrap" style="margin-top:8px" hidden>모델 이름 직접 입력<input id="aiModelCustom" placeholder="예: gemini-3.5-flash"></label>
+        <p class="hint" style="margin:6px 0 0">잘 모르겠다면 맨 위 추천 모델 그대로 두세요.</p>
+      </div>
+      <div class="kblock" id="runBlock"><div class="pair"><button class="main" id="aiRun" type="button">AI 맞춤 조언 받기</button><button id="aiCopy" type="button">질문만 복사</button></div>
+      <div class="st" id="aiSt" role="status"></div></div>
     </details>
     <details class="sub">
       <summary>판단 기준값 바꾸기</summary>
@@ -1035,8 +1059,8 @@ async function loadModels(){
     ok.sort((a,b)=>ver(b.name)-ver(a.name)||pre(a.name)-pre(b.name)||(/flash/.test(b.name)-/flash/.test(a.name))||a.name.localeCompare(b.name));
     const list=ok.map(m=>{const id=m.name.replace(/^models\//,'');return[id,`${m.displayName||id}${pre(id)?' · 미리보기':''}`]});
     fillModels(list,$('#aiModel').value);loadedFor=key;
-    st.className='st ok';st.textContent=`이 키로 쓸 수 있는 모델 ${list.length}개를 불러왔어요. 보통은 Flash 모델이면 충분해요.`;
-  }catch(e){st.className='st bad';st.textContent=`모델 목록을 불러오지 못했어요(${e.message}). 기본 목록에서 고르거나 직접 입력하세요.`}
+    st.className='st ok';st.textContent=`키가 확인됐어요. 쓸 수 있는 모델 ${list.length}개를 불러왔어요.`;tourCheck();
+  }catch(e){st.className='st bad';st.textContent=`키를 확인하지 못했어요(${e.message}). 키를 다시 복사해 붙여넣어 보세요. 계속 안 되면 기본 목록 모델로 시도해 보세요.`;tourCheck()}
 }
 async function callAI(prompt){
   let model=$('#aiModel').value;if(model==='__custom')model=$('#aiModelCustom').value.trim();
@@ -1180,9 +1204,10 @@ const TOUR=[
   {go:8,id:'aiAsk',sel:['#aiBox'],t:'AI 맞춤 조언도 받아 볼까요?',x:'보고서의 자동 문장 대신, AI가 시험 결과를 살펴보고 수업 활동과 출제 개선 방향을 맞춤으로 제안해 줘요. 다만 이 기능을 쓰면 평균·정답률 같은 요약 정보가 Google로 전송돼요. 쓰지 않아도 보고서는 이미 완성됐어요.',
    choice:[['괜찮아요, 끝낼게요','end',''],['주의 사항 보기','ai0','main']]},
   {go:8,id:'ai0',open:true,sel:['#aiCaution'],t:'먼저 주의 사항 확인',x:'무엇이 Google로 가고 무엇이 가지 않는지 꼼꼼히 읽어 주세요. 무료 키는 Google이 내용을 서비스 개선에 쓸 수 있어요. 괜찮다면 아래 동의에 체크하세요.',task:'동의에 체크하기',done:()=>$('#aiAgree').checked},
-  {go:8,id:'ai1',open:true,sel:['#keyLabel','#keyHint'],t:'Gemini API 키 넣기',x:'키가 없다면 파란 글씨 [Google AI Studio]를 눌러 무료로 발급받으세요. 받은 키를 복사해 칸에 붙여넣으면 돼요. 키는 이 컴퓨터에만 저장돼요.',task:'API 키 붙여넣기',done:()=>$('#apiKey').value.trim().length>=20},
-  {go:8,open:true,sel:['#aiModel'],t:'모델 고르기',x:'키를 넣으면 쓸 수 있는 모델 목록을 불러와요. 잘 모르겠다면 추천 모델 그대로 두면 됩니다.'},
-  {go:8,open:true,sel:['#aiRun'],t:'AI 맞춤 조언 받기',x:'[AI 맞춤 조언 받기]를 누르세요. 10~30초쯤 걸려요. 오류가 나면 키를 다시 확인해 주세요.',task:'AI 맞춤 조언 받기',done:()=>tourFlags.ai},
+  {go:8,id:'ai1',open:true,openG:true,pad:12,sel:['#keyGuide'],t:'API 키가 없다면 먼저 발급',x:'점선 안의 순서대로 따라 하세요. 파란 [Google AI Studio 열기] 버튼을 누르면 새 탭이 열려요. 키를 복사했으면 이 탭으로 돌아와 [다음]을 누르세요. 이미 키가 있다면 바로 [다음]을 누르면 돼요.'},
+  {go:8,open:true,pad:12,sel:['#keyBlock'],t:'API 키 붙여넣기',x:'복사한 키를 이 칸에 붙여넣기(Ctrl+V) 하세요. 붙여넣으면 키가 맞는지 바로 확인하고, 쓸 수 있는 모델 목록을 불러와요.',task:'API 키 붙여넣기',done:()=>$('#apiKey').value.trim().length>=20,fill:true,prog:()=>$('#modelSt').textContent||'키를 확인하는 중이에요…'},
+  {go:8,open:true,pad:12,sel:['#modelBlock'],t:'모델 고르기',x:'쓸 수 있는 모델이 목록에 나와요. 잘 모르겠다면 맨 위 추천 모델 그대로 두면 됩니다. Flash 모델이 빠르고, Pro 모델은 느리지만 더 꼼꼼해요.'},
+  {go:8,open:true,pad:12,sel:['#runBlock'],t:'AI 맞춤 조언 받기',x:'[AI 맞춤 조언 받기]를 누르세요. 10~30초쯤 걸려요. 빨간 글씨로 오류가 나오면 키를 다시 붙여넣거나 다른 모델을 골라 보세요.',task:'AI 맞춤 조언 받기',done:()=>tourFlags.ai},
   {go:8,sel:['.preview'],t:'조언이 보고서에 들어갔어요',x:"보고서 2쪽 '분석 및 개선 방향'이 AI 맞춤 조언으로 바뀌었어요. 눌러서 직접 고칠 수 있고, 마음에 안 들면 [자동 문장으로 되돌리기]를 누르세요."},
   {go:8,id:'end',sel:['#helpBtn'],t:'모두 마쳤어요!',x:'다음에도 막히면 이 [사용법 · 따라하기] 버튼을 누르세요. 수고하셨습니다.'}
 ];
@@ -1193,6 +1218,7 @@ function tourGo(id){const k=TOUR.findIndex(x=>x.id===id);if(k>=0){tIdx=k;showTou
 function showTour(){
   const s=TOUR[tIdx];if(s.go&&cur!==s.go)go(s.go);
   if(s.open)$('#aiBox').open=true;
+  if(s.openG)$('#keyGuide').open=true;
   const els=s.sel.map(q=>document.querySelector(q)).filter(Boolean);
   [...els].reverse().forEach(el=>{if(!el.closest('.preview'))el.scrollIntoView({block:'nearest',inline:'nearest'})});
   const ch=$('#tChoice');ch.hidden=!s.choice;$('#tbox .trow').hidden=!!s.choice;
@@ -1226,7 +1252,7 @@ function drawTour(){
   const s=TOUR[tIdx],W=innerWidth,H=innerHeight,box=$('#tbox');
   const rs=s.sel.map(q=>document.querySelector(q)).filter(Boolean).map(visRect).filter(r=>r&&r.width>0&&r.height>0);
   let r=null;
-  if(rs.length){const p=8;r={l:Math.max(4,Math.min(...rs.map(x=>x.left))-p),t:Math.max(4,Math.min(...rs.map(x=>x.top))-p),r:Math.min(W-4,Math.max(...rs.map(x=>x.right))+p),b:Math.min(H-4,Math.max(...rs.map(x=>x.bottom))+p)}}
+  if(rs.length){const p=s.pad||8;r={l:Math.max(4,Math.min(...rs.map(x=>x.left))-p),t:Math.max(4,Math.min(...rs.map(x=>x.top))-p),r:Math.min(W-4,Math.max(...rs.map(x=>x.right))+p),b:Math.min(H-4,Math.max(...rs.map(x=>x.bottom))+p)}}
   const bw=Math.min(330,W-24);box.style.width=bw+'px';const bh=box.offsetHeight,gap=56,cl=(v,a,b)=>Math.max(a,Math.min(b,v));
   let bx,by;
   if(!r){bx=(W-bw)/2;by=(H-bh)/2}
@@ -1333,6 +1359,7 @@ FIELDS.forEach(id=>{if(id==='aiModel')return;const v=store.get(id);if(v!==null)$
 document.querySelectorAll('input,textarea,select').forEach(el=>{if(el.type!=='file'&&!el.classList.contains('fin'))el.addEventListener('input',update)});
 $('#aiModel').addEventListener('change',()=>{modelVis();store.set('aiModel',$('#aiModel').value)});
 $('#apiKey').addEventListener('change',loadModels);
+let keyT;$('#apiKey').addEventListener('input',()=>{clearTimeout(keyT);if($('#apiKey').value.trim().length>=30)keyT=setTimeout(loadModels,600)});
 $('#aiBox').addEventListener('toggle',()=>{if($('#aiBox').open)loadModels()});
 document.querySelectorAll('.drop:not(.cmp)').forEach(dz=>{
   const inp=dz.querySelector('input'),st=dz.nextElementSibling;
