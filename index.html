@@ -200,6 +200,14 @@ pre{background:#0f1f38;color:#dbe6f7;border-radius:10px;padding:10px;font-size:1
 .ants{animation:ants 1s linear infinite}
 @keyframes ants{to{stroke-dashoffset:-17}}
 @media(prefers-reduced-motion:reduce){.ants{animation:none}.tbox{transition:none}}
+@media(max-height:860px) and (min-width:901px){
+ .brand{padding:14px 16px 10px}.brand span{font-size:12px}.prog{margin-top:8px}
+ #steps{padding:4px 10px}.grp{margin:8px 8px 3px;font-size:12px}
+ .sbtn{min-height:34px;font-size:14px}.sbtn i{width:22px;height:22px;font-size:12px}
+ .sfoot{padding:8px 10px;gap:6px}.sfoot button{min-height:34px}
+ .legal{padding:4px 10px 6px}
+}
+@media(max-height:720px) and (min-width:901px){.brand>span{display:none}.sbtn{min-height:30px}.grp{margin:6px 8px 2px}}
 @media(max-width:900px){
  body{overflow:auto}
  .app{display:block;height:auto}
@@ -1170,7 +1178,8 @@ function tourGo(id){const k=TOUR.findIndex(x=>x.id===id);if(k>=0){tIdx=k;showTou
 function showTour(){
   const s=TOUR[tIdx];if(s.go&&cur!==s.go)go(s.go);
   if(s.open)$('#aiBox').open=true;
-  const tg=document.querySelector(s.sel[0]);if(tg&&tg.closest('.card'))tg.scrollIntoView({block:'nearest'});
+  const els=s.sel.map(q=>document.querySelector(q)).filter(Boolean);
+  [...els].reverse().forEach(el=>{if(!el.closest('.preview'))el.scrollIntoView({block:'nearest',inline:'nearest'})});
   const ch=$('#tChoice');ch.hidden=!s.choice;$('#tbox .trow').hidden=!!s.choice;
   if(s.choice){ch.innerHTML=s.choice.map(([l,id,c])=>`<button type="button" class="${c}" data-to="${id}">${esc(l)}</button>`).join('');ch.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>tourGo(b.dataset.to)));setTimeout(()=>ch.querySelector('.main').focus({preventScroll:true}),50)}
   $('#tStep').textContent=`따라하기 ${tIdx+1} / ${TOUR.length}`;$('#tTitle').textContent=s.t;$('#tText').innerHTML=s.x.split(/(?<=[다요]\.|[다요]!|\?)\s+/).map(x=>`<span>${esc(x)}</span>`).join('');
@@ -1190,10 +1199,17 @@ function tourCheck(first){
   if(first&&ok)nb.focus({preventScroll:true});
   if(!first&&ok&&s.auto){clearTimeout(autoT);autoT=setTimeout(()=>{if(TOUR[tIdx]===s){tIdx++;showTour()}},700)}
 }
+function visRect(el){
+  const b=el.getBoundingClientRect();let l=b.left,t=b.top,r=b.right,bo=b.bottom,p=el.parentElement;
+  while(p&&p!==document.body&&p!==document.documentElement){const cs=getComputedStyle(p);
+    if(/(auto|scroll|hidden)/.test(cs.overflowY+' '+cs.overflowX)){const q=p.getBoundingClientRect();l=Math.max(l,q.left);t=Math.max(t,q.top);r=Math.min(r,q.right);bo=Math.min(bo,q.bottom)}
+    p=p.parentElement}
+  return r>l&&bo>t?{left:l,top:t,right:r,bottom:bo,width:r-l,height:bo-t}:null;
+}
 function drawTour(){
   if(tIdx<0)return;
   const s=TOUR[tIdx],W=innerWidth,H=innerHeight,box=$('#tbox');
-  const rs=s.sel.map(q=>document.querySelector(q)).filter(Boolean).map(e=>e.getBoundingClientRect()).filter(r=>r.width>0&&r.height>0);
+  const rs=s.sel.map(q=>document.querySelector(q)).filter(Boolean).map(visRect).filter(r=>r&&r.width>0&&r.height>0);
   let r=null;
   if(rs.length){const p=8;r={l:Math.max(4,Math.min(...rs.map(x=>x.left))-p),t:Math.max(4,Math.min(...rs.map(x=>x.top))-p),r:Math.min(W-4,Math.max(...rs.map(x=>x.right))+p),b:Math.min(H-4,Math.max(...rs.map(x=>x.bottom))+p)}}
   const bw=Math.min(330,W-24);box.style.width=bw+'px';const bh=box.offsetHeight,gap=56,cl=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -1227,6 +1243,7 @@ $('#tPrev').addEventListener('click',()=>{clearTimeout(autoT);if(tIdx>0){tIdx--;
 $('#tLater').addEventListener('click',()=>{clearTimeout(autoT);if(tIdx<TOUR.length-1){tIdx++;showTour()}});
 $('#tSkip').addEventListener('click',endTour);
 addEventListener('resize',()=>{if(tIdx>=0)drawTour()});
+document.addEventListener('scroll',()=>{if(tIdx>=0)requestAnimationFrame(drawTour)},true);
 document.addEventListener('keydown',e=>{if(tIdx<0)return;if(e.key==='Escape'){endTour();return}
   if(e.target.closest('input,textarea,select,[contenteditable]'))return;
   e.stopImmediatePropagation();
