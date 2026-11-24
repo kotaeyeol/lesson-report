@@ -130,6 +130,11 @@ pre{background:#0f1f38;color:#dbe6f7;border-radius:10px;padding:10px;font-size:1
 .sfoot{grid-template-columns:1fr 1fr}
 .sfoot .help{grid-column:1/-1;background:var(--blue-soft);border-color:var(--blue-soft);color:var(--blue);font-weight:600}
 .card>textarea.small{flex:0 0 auto;min-height:70px}
+.caution{border:1.5px solid light-dark(#f0b429,#8a6a1c);background:light-dark(#fff8e6,#2b2414);border-radius:12px;padding:10px 12px;margin:4px 0 12px;color:var(--ink)}
+.caution>b{font-size:14px;color:light-dark(#8a5a00,#f5c451)}
+.caution ul{margin:6px 0 8px;padding-left:18px;display:grid;gap:4px;font-size:13px;color:var(--text)}
+.agree{display:flex!important;gap:8px;align-items:flex-start;font-size:13.5px;color:var(--ink);font-weight:600;cursor:pointer}
+.agree input{width:18px;height:18px;margin:1px 0 0;flex:none;accent-color:var(--blue)}
 .hist{display:grid;gap:6px;margin:4px 0 12px}.hist>b{font-size:14px;color:var(--ink)}
 #histList{display:grid;gap:6px;max-height:220px;overflow:auto}
 .hbtn{display:grid;text-align:left;gap:1px;min-height:52px;padding:8px 12px;border-radius:12px}.hbtn b{font-size:14.5px}.hbtn span{font-size:12.5px;color:var(--muted)}
@@ -397,7 +402,16 @@ pre{background:#0f1f38;color:#dbe6f7;border-radius:10px;padding:10px;font-size:1
     <div class="st" id="toolSt" role="status"></div>
     <details class="sub" id="aiBox">
       <summary>AI 맞춤 조언 받기 (Gemini, 선택)</summary>
-      <p class="hint">계산된 요약 숫자와 진단만 보냅니다. 학생 정보·원본 파일은 보내지 않아요.</p>
+      <div class="caution" id="aiCaution">
+        <b>사용 전에 꼭 읽어 주세요</b>
+        <ul>
+          <li>이 기능을 쓰면 아래 <b>요약 정보가 Google(Gemini)로 전송</b>됩니다.<br>교과목·시험명, 학급별 평균, 문항별 정답률·정답·내용요소, 급간 인원, 성취도 분포, 지난 시험 요약</li>
+          <li><b>보내지 않는 것:</b> 학생 이름·학번, 학교·교사 이름, 원본 파일, 문항 원문</li>
+          <li><b>무료 API 키</b>를 쓰면 Google이 보낸 내용을 서비스 개선에 활용하거나 사람이 검토할 수 있어요.</li>
+          <li>학교의 평가 보안·개인정보 지침에 맞는지 확인한 뒤 사용하세요. 걱정되면 이 기능 없이도 보고서는 완성돼요.</li>
+        </ul>
+        <label class="agree"><input type="checkbox" id="aiAgree"> 위 내용을 확인했고, 요약 정보 전송에 동의합니다</label>
+      </div>
       <label id="keyLabel">Gemini API 키 <span style="font-size:12px">(이 브라우저에만 저장돼요)</span><input id="apiKey" type="password" autocomplete="off" placeholder="AIza…"></label>
       <p class="hint" id="keyHint" style="margin:4px 0 8px">키가 없다면 <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>에서 무료로 발급받을 수 있어요. (aistudio.google.com/apikey)</p>
       <label>모델<select id="aiModel"></select></label>
@@ -1163,8 +1177,9 @@ const TOUR=[
   {sel:['.sbtn[data-go="6"]','.sbtn[data-go="7"]'],t:'선택 자료는 여유 있을 때',x:'학기말 성취도와 지난 시험 비교는 나중에 넣어도 돼요. 넣으면 성취도 분포와 내용요소별 변화까지 분석합니다.'},
   {sel:['.sbtn[data-go="8"]'],t:'보고서 완성으로 가기',x:'왼쪽 목차의 [8 보고서 완성]을 직접 눌러 보세요.',task:'[보고서 완성] 누르기',done:()=>cur===8,auto:true},
   {go:8,sel:['#pdfBtn'],t:'PDF로 저장하기',x:'[PDF로 저장]을 눌러 보고서를 파일로 받아 보세요. 저장한 결과는 다음 시험 때 7단계에서 비교할 수 있게 기록돼요.',task:'PDF로 저장 또는 인쇄 누르기',done:()=>tourFlags.pdf},
-  {go:8,id:'aiAsk',sel:['#aiBox'],t:'AI 맞춤 조언도 받아 볼까요?',x:'보고서의 자동 문장 대신, AI가 선생님의 시험 결과를 살펴보고 수업 활동과 출제 개선 방향을 맞춤으로 제안해 줘요. 개인 Gemini API 키가 필요하고, 학생 정보 없이 요약 숫자만 보내요.',
-   choice:[['괜찮아요, 끝낼게요','end',''],['AI 조언 받기','ai1','main']]},
+  {go:8,id:'aiAsk',sel:['#aiBox'],t:'AI 맞춤 조언도 받아 볼까요?',x:'보고서의 자동 문장 대신, AI가 시험 결과를 살펴보고 수업 활동과 출제 개선 방향을 맞춤으로 제안해 줘요. 다만 이 기능을 쓰면 평균·정답률 같은 요약 정보가 Google로 전송돼요. 쓰지 않아도 보고서는 이미 완성됐어요.',
+   choice:[['괜찮아요, 끝낼게요','end',''],['주의 사항 보기','ai0','main']]},
+  {go:8,id:'ai0',open:true,sel:['#aiCaution'],t:'먼저 주의 사항 확인',x:'무엇이 Google로 가고 무엇이 가지 않는지 꼼꼼히 읽어 주세요. 무료 키는 Google이 내용을 서비스 개선에 쓸 수 있어요. 괜찮다면 아래 동의에 체크하세요.',task:'동의에 체크하기',done:()=>$('#aiAgree').checked},
   {go:8,id:'ai1',open:true,sel:['#keyLabel','#keyHint'],t:'Gemini API 키 넣기',x:'키가 없다면 파란 글씨 [Google AI Studio]를 눌러 무료로 발급받으세요. 받은 키를 복사해 칸에 붙여넣으면 돼요. 키는 이 컴퓨터에만 저장돼요.',task:'API 키 붙여넣기',done:()=>$('#apiKey').value.trim().length>=20},
   {go:8,open:true,sel:['#aiModel'],t:'모델 고르기',x:'키를 넣으면 쓸 수 있는 모델 목록을 불러와요. 잘 모르겠다면 추천 모델 그대로 두면 됩니다.'},
   {go:8,open:true,sel:['#aiRun'],t:'AI 맞춤 조언 받기',x:'[AI 맞춤 조언 받기]를 누르세요. 10~30초쯤 걸려요. 오류가 나면 키를 다시 확인해 주세요.',task:'AI 맞춤 조언 받기',done:()=>tourFlags.ai},
@@ -1259,7 +1274,7 @@ const INFO={
  privacy:['개인정보 처리방침',`<p>성적분석 보고서 도우미(이하 '도우미')는 개인정보를 수집하거나 저장하지 않습니다.</p>
   <h3>1. 처리하는 정보</h3><ul><li>도우미는 학급 평균, 문항 정답률, 급간 인원, 성취도 분포 같은 <b>집계 통계</b>만 다룹니다.</li><li>학생 이름·학번 등 개인을 알아볼 수 있는 정보는 넣지 마세요.</li></ul>
   <h3>2. 정보가 저장되는 곳</h3><ul><li>입력한 자료는 사용하는 컴퓨터의 브라우저(로컬 저장소)에만 저장되며, 별도 서버로 전송되지 않습니다.</li><li>[모두 지우기]를 누르거나 브라우저 사이트 데이터를 삭제하면 지워집니다.</li></ul>
-  <h3>3. 외부로 보내는 경우</h3><ul><li>[AI 맞춤 조언 받기]를 직접 누를 때만, 계산된 요약 숫자와 진단 문장이 선생님 본인의 Gemini API 키로 Google에 전송됩니다.</li><li>이 경우 Google의 이용약관과 개인정보처리방침이 적용됩니다. 무료 키는 입력 내용이 서비스 개선에 쓰일 수 있습니다.</li></ul>
+  <h3>3. 외부로 보내는 경우</h3><ul><li>[AI 맞춤 조언 받기]를 직접 누르고 전송에 동의한 경우에만, 요약 정보(교과목·시험명, 학급별 평균, 문항별 정답률·정답·내용요소, 급간 인원, 성취도 분포)와 진단 문장이 선생님 본인의 Gemini API 키로 Google에 전송됩니다. 학생 이름·학번, 학교·교사 이름, 원본 파일, 문항 원문은 보내지 않습니다.</li><li>이 경우 Google의 이용약관과 개인정보처리방침이 적용됩니다. 무료 키는 입력 내용이 서비스 개선에 쓰일 수 있습니다.</li></ul>
   <h3>4. 지난 시험 비교 기록</h3><ul><li>PDF로 저장하거나 인쇄하면, 다음 시험과 비교할 수 있도록 요약 통계(평균, 문항별 정답률, 내용요소, 성취도 분포)가 이 브라우저에 기록되고 PDF 파일 속성에도 함께 담깁니다.</li><li>학생 정보는 포함되지 않으며, 7단계의 [기록 전체 삭제]나 브라우저 사이트 데이터 삭제로 지울 수 있습니다.</li></ul>`],
  security:['보안 안내',`<ul><li>도우미는 서버 없이 브라우저 안에서만 작동합니다. 넣은 파일은 업로드되지 않고 이 화면 안에서만 읽습니다.</li>
   <li>화면 구성과 파일 변환을 위해 공개 라이브러리(SheetJS, html2canvas, jsPDF)와 글꼴을 CDN에서 불러옵니다.</li>
@@ -1339,8 +1354,10 @@ $('#pdfBtn').addEventListener('click',savePdf);
 $('#print').addEventListener('click',()=>{saveHist();try{window.print()}catch(e){}});
 const copy=async(t,el,msg)=>{try{await navigator.clipboard.writeText(t);el.className='st ok';el.textContent=msg}catch(e){el.className='st bad';el.textContent='복사가 막혀 있어요. 직접 선택해 복사해 주세요.'}};
 $('#copyTxt').addEventListener('click',()=>{const txt=[$('#p1 h2').textContent,...[1,2,3].map(k=>$('#adv'+k).previousElementSibling.textContent+'\n'+[...$('#adv'+k).querySelectorAll('li')].map(l=>'- '+l.textContent).join('\n'))].join('\n\n');copy(txt,$('#toolSt'),'보고서 글을 복사했어요.')});
-$('#aiCopy').addEventListener('click',()=>copy(buildPrompt(),$('#aiSt'),'질문을 복사했어요. gemini.google.com에 붙여넣으면 키 없이도 조언을 받을 수 있어요.'));
-$('#aiRun').addEventListener('click',async()=>{
+$('#aiCopy').addEventListener('click',()=>{if(!agreed())return;copy(buildPrompt(),$('#aiSt'),'질문을 복사했어요. gemini.google.com에 붙여넣으면 키 없이도 조언을 받을 수 있어요. 붙여넣는 순간 요약 정보가 Google로 전송돼요.')});
+function agreed(){if($('#aiAgree').checked)return true;const st=$('#aiSt');st.className='st bad';st.textContent='위의 주의 사항을 읽고 동의에 체크해 주세요.';$('#aiCaution').scrollIntoView({block:'nearest'});return false}
+$('#aiAgree').addEventListener('change',()=>{tourCheck();if($('#aiAgree').checked){$('#aiSt').className='st';$('#aiSt').textContent=''}});
+$('#aiRun').addEventListener('click',async()=>{if(!agreed())return;
   const st=$('#aiSt'),b=$('#aiRun');st.className='st';st.textContent='AI가 선생님의 시험 결과를 살펴보고 조언을 쓰는 중이에요… (10~30초)';b.disabled=true;
   try{
     const txt=await callAI(buildPrompt());const p=parseAI(txt);
