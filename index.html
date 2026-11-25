@@ -522,7 +522,7 @@ const FIELDS=['year','exam','grade','subject','teacher','expect','prev','taClass
 
 /* ---------- 표 읽기 ---------- */
 function toGrid(text){
-  return String(text||'').replace(/\r/g,'').replace(/"?반[ \t]*\n[ \t]*번호"?/g,'반/번호').split('\n').filter(l=>l.trim()).map(l=>{
+  return String(text||'').replace(/\r/g,'').replace(/"?반[ \t]*\n[ \t]*번호"?/g,'반/번호').replace(/"?강의실[ \t]*\n[ \t]*문항번호"?/g,'강의실/문항번호').split('\n').filter(l=>l.trim()).map(l=>{
     if(l.includes('\t'))return l.split('\t').map(c=>c.trim());
     if(/,/.test(l)&&!/\d,\d{3}/.test(l))return l.split(',').map(c=>c.trim());
     return l.trim().split(/\s+/);
@@ -532,6 +532,7 @@ const clean=c=>String(c??'').replace(/\s/g,'');
 const optNo=c=>{const s=clean(c);const i=CIRC.indexOf(s);if(i>=0)return i+1;const m=s.match(/^(?:선[지택]|응답|반응)?([1-5])(?:번)?(?:선[지택]|응답률|반응률)?$/);return m?+m[1]:0};
 
 function parseItems(g){
+  {const rc=parseRateCompare(g);if(rc)return fix(rc.items,'neis')}
   // A) 머리글에 '문항'과 '정답률'
   for(let r=0;r<g.length;r++){
     const top=g[r].map(clean);
@@ -683,6 +684,29 @@ function parseAch(g){
 const tsvAch=v=>'성취도\t인원\n'+Object.entries(v).map(([k,n])=>`${k==='I'?'미이수':k}\t${n}`).join('\n');
 function parsePrev(t){try{const j=JSON.parse(String(t||'').trim());return j&&j.app==='성적분석보고서'?j:null}catch(e){return null}}
 const avgBy=(list,get)=>{const g={};list.forEach(i=>{const c=get(i);if(!c)return;(g[c]=g[c]||[]).push(i.rate)});const o={};for(const k in g)o[k]=g[k].reduce((a,b)=>a+b,0)/g[k].length;return o};
+/* ---------- 나이스 정답률비교표 ---------- */
+function parseRateCompare(g){
+  let li=-1,start=-1;
+  for(let r=0;r<g.length&&li<0;r++){const i=g[r].findIndex(c=>/문항번호$/.test(clean(c)));if(i>=0){li=i;start=r}}
+  if(li<0)return null;
+  let avgCol=-1;const items=new Map();const clsCols=[];
+  for(let r=start;r<g.length;r++){
+    const row=g[r];
+    const ai=row.findIndex(c=>clean(c)==='평균');
+    if(ai>li&&!Number.isInteger(num(row[li]))){avgCol=ai;row.forEach((c,i)=>{const n=num(c);if(i>li&&i<ai&&Number.isInteger(n)&&n>=1&&n<=40&&!clsCols.some(x=>x[0]===i))clsCols.push([i,n])});continue}
+    const lab=clean(row[li]);
+    if(/평균/.test(lab))continue;
+    const q=num(row[li]);if(!Number.isInteger(q)||q<1||q>200)continue;
+    let v=avgCol>=0?num(row[avgCol]):NaN;
+    if(!isFinite(v)){const ns=row.slice(li+1).map(num).filter(x=>isFinite(x)&&x>=0&&x<=100);if(ns.length)v=ns.reduce((a,b)=>a+b,0)/ns.length}
+    if(isFinite(v)&&v>=0&&v<=100)items.set(q,{q,rate:v});
+  }
+  if(avgCol<0&&!g.some(r=>r.some(c=>/정답률/.test(String(c)))))return null;
+  if(g.some(r=>r.some(c=>/^(배점|정답|난이도|내용요소|성취기준)$/.test(clean(c))))&&!g.some(r=>r.some(c=>/정답률/.test(String(c)))))return null;
+  const list=[...items.values()].sort((a,b)=>a.q-b.q);
+  return list.length?{items:list,how:'neis',classes:clsCols.map(x=>x[1])}:null;
+}
+
 /* ---------- 나이스 교과목별 일람표 ---------- */
 function parseIlram(g){
   for(let r=0;r<g.length;r++){
@@ -751,11 +775,12 @@ async function handleFiles(files,st){
       const grids=await readFile(f);const got=[];
       for(const g of grids){
         const ilr=parseIlram(g);if(ilr){got.push(...applyIlram(ilr));continue}
+        const rcp=parseRateCompare(g);if(rcp){$('#taItem').value=tsvItems(rcp.items);got.push(`정답률비교표 ${rcp.items.length}문항 평균 정답률${rcp.classes.length?` (${rcp.classes.join('·')}반)`:''}`);continue}
         const fq=parseFreq(g);if(fq){$('#taFreq').value=tsvFreq(fq);got.push(`급간 ${fq.length}개`);continue}
         const inf=parseInfo(g);if(inf){$('#taMap').value=tsvInfo(inf);got.push(`문항정보표 ${inf.length}문항`);continue}
-        const it=parseItems(g);if(it&&(it.how==='header'||it.how==='wide')){$('#taItem').value=tsvItems(it.items);got.push(`${it.items.length}문항 정답률`);continue}
+        const it=parseItems(g);if(it&&(it.how==='header'||it.how==='wide'||it.how==='neis')){$('#taItem').value=tsvItems(it.items);got.push(`${it.items.length}문항 정답률`);continue}
         const ac=parseAch(g);if(ac){$('#taAch').value=tsvAch(ac.v);got.push('학기말 성취도');continue}
-        const cl=parseClasses(g);if(cl&&cl.length>=2&&g.some(r=>/반/.test(r.join('')))){$('#taClass').value=tsvClass(cl);got.push(`${cl.length}개 반 평균`)}
+        const cl=parseClasses(g);if(cl&&cl.length>=2&&cl.length<=20&&g.some(r=>/(^|[^가-힣])\d+\s*반(?![가-힣])/.test(r.join(' ')))){$('#taClass').value=tsvClass(cl);got.push(`${cl.length}개 반 평균`)}
       }
       msgs.push(got.length?`${f.name}: ${got.join(', ')} 읽음`:`${f.name}: 표를 찾지 못했어요. 나이스 화면에서 표를 복사해 아래 칸에 붙여넣어 주세요.`);
     }catch(e){msgs.push(`${f.name}: 열지 못했어요 (${e.message})`)}
