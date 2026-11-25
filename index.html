@@ -311,15 +311,15 @@ pre{background:#0f1f38;color:#dbe6f7;border-radius:10px;padding:10px;font-size:1
     <p class="kicker">2단계 · 학급 평균</p>
     <h2>학급별 평균을 넣어 주세요</h2>
     <ol class="how">
-      <li>나이스 › 성적 › 정기시험조회/통계 › <b>교과목별 일람표 조회</b></li>
-      <li>선택과목은 <b>강의실별</b>로 조회해 각 반 평균 확인</li>
-      <li>평균 줄을 복사(Ctrl+C) → 아래 칸에 붙여넣기(Ctrl+V)</li>
+      <li>나이스 › 성적 › 정기시험조회/통계 › <b>정기시험조회</b></li>
+      <li><b>[교과목별일람표조회-전체학급]</b> 탭에서 고사·학년·과목을 고르고 조회</li>
+      <li>엑셀로 내려받아 아래 점선 칸에 끌어다 놓기 (표를 복사해 붙여넣어도 돼요)</li>
     </ol>
     <label class="drop"><input type="file" multiple accept=".xls,.xlsx,.csv,.htm,.html,.txt"><div><strong>엑셀 파일 끌어다 놓기</strong><br><span>또는 눌러서 고르기</span></div></label>
     <div class="st fst" role="status"></div>
     <textarea id="taClass" spellcheck="false" placeholder="여기에 붙여넣기&#10;예)  6반	71.7&#10;      7반	70.0"></textarea>
     <div class="st" id="stClass" role="status"></div>
-    <p class="hint" style="margin:6px 0 0">학년 평균은 반 평균으로 자동 계산해요. 반별 <b>인원</b> 열을 함께 붙여넣으면 인원 비율대로 정확히 계산합니다.</p>
+    <p class="hint" style="margin:6px 0 0">전체학급 엑셀을 넣으면 반별 응시 인원으로 학년 평균을 정확히 계산해요. 번호별 점수로 5단계 급간 분포와 1단계 시험 정보도 자동으로 채워져요.</p>
   </section>
 
   <section class="card" data-step="3" role="tabpanel">
@@ -358,6 +358,7 @@ pre{background:#0f1f38;color:#dbe6f7;border-radius:10px;padding:10px;font-size:1
       <li>나이스 › 성적 › 성적조회/통계 › 학기말성적통계 › <b>도수분포표</b></li>
       <li>급간을 <b>10</b>으로 두고 조회</li>
       <li>아래 칸에 급간별 인원을 적으세요</li>
+      <li>2단계에서 전체학급 엑셀을 넣었다면 이미 자동으로 채워져 있어요</li>
     </ol>
     <div class="fgrid" id="fgrid"></div>
     <div class="fsum"><span>합계</span><b id="fsum">0명</b></div>
@@ -512,7 +513,7 @@ const FIELDS=['year','exam','grade','subject','teacher','expect','prev','taClass
 
 /* ---------- 표 읽기 ---------- */
 function toGrid(text){
-  return String(text||'').replace(/\r/g,'').split('\n').filter(l=>l.trim()).map(l=>{
+  return String(text||'').replace(/\r/g,'').replace(/"?반[ \t]*\n[ \t]*번호"?/g,'반/번호').split('\n').filter(l=>l.trim()).map(l=>{
     if(l.includes('\t'))return l.split('\t').map(c=>c.trim());
     if(/,/.test(l)&&!/\d,\d{3}/.test(l))return l.split(',').map(c=>c.trim());
     return l.trim().split(/\s+/);
@@ -599,6 +600,7 @@ function parseFreq(g){
 }
 
 function parseClasses(g){
+  {const il=parseIlram(g);if(il)return il.cls}
   for(let r=0;r<g.length;r++){
     const idx=[];g[r].forEach((c,i)=>{const m=clean(c).match(/^(\d+)반$/);if(m)idx.push([i,+m[1]])});
     if(idx.length<2)continue;
@@ -672,6 +674,48 @@ function parseAch(g){
 const tsvAch=v=>'성취도\t인원\n'+Object.entries(v).map(([k,n])=>`${k==='I'?'미이수':k}\t${n}`).join('\n');
 function parsePrev(t){try{const j=JSON.parse(String(t||'').trim());return j&&j.app==='성적분석보고서'?j:null}catch(e){return null}}
 const avgBy=(list,get)=>{const g={};list.forEach(i=>{const c=get(i);if(!c)return;(g[c]=g[c]||[]).push(i.rate)});const o={};for(const k in g)o[k]=g[k].reduce((a,b)=>a+b,0)/g[k].length;return o};
+/* ---------- 나이스 교과목별 일람표 ---------- */
+function parseIlram(g){
+  for(let r=0;r<g.length;r++){
+    const row=g[r];const li=row.findIndex(c=>/^(반\/?)?번호$/.test(clean(c)));
+    if(li<0)continue;
+    const cols=[];row.forEach((c,i)=>{if(i<=li)return;const n=num(c);if(Number.isInteger(n)&&n>=1&&n<=40&&String(c).trim()!=='')cols.push([i,n])});
+    if(!cols.length)continue;
+    let mRow=null,nRow=null;const scores=[];
+    for(let k=r+1;k<g.length;k++){
+      const lab=clean(g[k][li]);
+      if(/평균/.test(lab)){mRow=g[k];break}
+      if(/응시/.test(lab)){nRow=g[k];continue}
+      if(/총점|합계/.test(lab))continue;
+      if(Number.isInteger(num(g[k][li]))){cols.forEach(([i])=>{const t=String(g[k][i]??'').trim();if(!t||/[()（）]/.test(t))return;const v=num(t);if(isFinite(v)&&v>=0&&v<=100)scores.push(v)})}
+    }
+    if(!mRow)continue;
+    const cls=cols.map(([i,c])=>({c,m:num(mRow[i]),n:nRow?num(nRow[i]):NaN})).filter(o=>isFinite(o.m));
+    if(!cls.length)continue;
+    const all=g.map(x=>x.join(' ')).join('\n'),meta={};let m;
+    if(m=all.match(/(\d{4})\s*학년도\s*(\d)\s*학기[^\n]*?(\d)\s*학년/)){meta.year=m[1];meta.sem=m[2];meta.grade=m[3]}
+    if(m=all.match(/고사\s*:\s*(.+?)(?=\s{2,}|\s*교과목|\n|$)/))meta.exam=m[1].trim();
+    if(m=all.match(/교과목\s*:\s*(.+?)(?=\s{2,}|\s*만점|\n|$)/)){const t=m[1].trim();meta.subject=t.split(':').pop().replace(/\(\d+\)\s*$/,'').trim()}
+    if(m=all.match(/교과담당교사\s*:\s*([^\s]+)/))meta.teacher=m[1];
+    return{cls,scores,meta};
+  }
+  return null;
+}
+function binsFromScores(sc){const b=[0,0,0,0,0,0,0,0,0,0];sc.forEach(v=>b[Math.min(9,Math.floor(v/10))]++);return '급간\t인원\n'+[9,8,7,6,5,4,3,2,1,0].map(k=>`${k*10}~${k*10+10}\t${b[k]}`).join('\n')}
+function applyIlram(il){
+  const msg=[];
+  $('#taClass').value=tsvClass(il.cls);msg.push(`${il.cls.length}개 반 평균`);
+  if(il.scores.length&&!$('#taFreq').value.trim()){$('#taFreq').value=binsFromScores(il.scores);msg.push(`급간 분포 ${il.scores.length}명(5단계 자동 입력)`)}
+  const M=il.meta;
+  if(M.year)$('#year').value=M.year;
+  if(M.sem&&M.exam)$('#exam').value=`${M.sem}학기 ${M.exam}`;
+  if(M.grade)$('#grade').value=M.grade;
+  if(M.subject&&!$('#subject').value.trim())$('#subject').value=M.subject;
+  if(M.teacher&&!$('#teacher').value.trim())$('#teacher').value=M.teacher;
+  if(M.year||M.exam||M.subject)msg.push('1단계 시험 정보');
+  return msg;
+}
+
 /* ---------- 파일 ---------- */
 async function readFile(f){
   const buf=await f.arrayBuffer();const u8=new Uint8Array(buf);
@@ -697,6 +741,7 @@ async function handleFiles(files,st){
     try{
       const grids=await readFile(f);const got=[];
       for(const g of grids){
+        const ilr=parseIlram(g);if(ilr){got.push(...applyIlram(ilr));continue}
         const fq=parseFreq(g);if(fq){$('#taFreq').value=tsvFreq(fq);got.push(`급간 ${fq.length}개`);continue}
         const inf=parseInfo(g);if(inf){$('#taMap').value=tsvInfo(inf);got.push(`문항정보표 ${inf.length}문항`);continue}
         const it=parseItems(g);if(it&&(it.how==='header'||it.how==='wide')){$('#taItem').value=tsvItems(it.items);got.push(`${it.items.length}문항 정답률`);continue}
@@ -1188,8 +1233,8 @@ const TOUR=[
   {go:1,sel:['#steps'],t:'순서대로 8단계',x:'왼쪽 목차가 할 일의 순서예요. 1~5단계는 꼭 넣을 자료, 6~7단계는 있으면 더 자세해지는 선택 자료입니다.'},
   {go:1,sel:['[data-step="1"] .grid2'],t:'시험 정보 적기',x:'점선 안의 칸에 직접 적어 보세요. 보고서 제목과 표에 들어갑니다.',task:'교과목과 예상 평균 적기',done:()=>filled(1),fill:true,prog:()=>`교과목 · 예상 평균 ${$('#expect').value.trim()}점 입력됨`},
   {sel:['#nextBtn'],t:'다음 단계로 넘어가기',x:'위쪽의 [다음 →] 버튼을 직접 눌러 보세요.',task:'[다음 →] 누르기',done:()=>cur>=2,auto:true},
-  {go:2,sel:['[data-step="2"] .how'],t:'나이스에서 표 찾기',x:'나이스를 열고 파란 상자에 적힌 메뉴 순서대로 들어가 학급별 평균을 조회해 두세요. 준비되면 [다음]을 누르세요.'},
-  {go:2,sel:['[data-step="2"] .drop','#taClass'],t:'학급 평균 넣기',x:'나이스 표를 드래그해 복사(Ctrl+C)한 뒤 아래 칸에 붙여넣기(Ctrl+V) 하세요. 엑셀 파일이 있으면 점선 칸에 끌어다 놓아도 돼요.',task:'학급 평균 붙여넣기',done:()=>last.cls.length>0,fill:true,prog:()=>`${last.cls.map(c=>c.c+'반').join(', ')} 입력됨`},
+  {go:2,sel:['[data-step="2"] .how'],t:'나이스에서 표 찾기',x:'나이스 정기시험조회 화면에서 [교과목별일람표조회-전체학급] 탭을 열고 조회하세요. 엑셀로 내려받아 두면 다음 단계에서 끌어다 놓기만 하면 돼요. 준비되면 [다음]을 누르세요.'},
+  {go:2,sel:['[data-step="2"] .drop','#taClass'],t:'학급 평균 넣기',x:'내려받은 엑셀 파일을 점선 칸에 끌어다 놓으세요. 학급 평균, 급간 분포, 시험 정보가 한 번에 채워져요. 엑셀이 없으면 나이스 표를 복사해 아래 칸에 붙여넣어도 돼요.',task:'학급 평균 붙여넣기',done:()=>last.cls.length>0,fill:true,prog:()=>`${last.cls.map(c=>c.c+'반').join(', ')} 입력됨`},
   {go:2,sel:['#stClass'],t:'제대로 읽혔는지 확인',x:'초록 글씨로 읽은 반과 학년 평균이 나오면 성공이에요. 오른쪽 보고서에도 그래프가 생겼어요.'},
   {sel:['#nextBtn'],t:'3단계로',x:'[다음 →] 버튼을 눌러 문항 정답률 단계로 가세요.',task:'[다음 →] 누르기',done:()=>cur>=3,auto:true},
   {go:3,sel:['[data-step="3"] .how','[data-step="3"] .drop','#taItem'],t:'문항 정답률 넣기',x:'나이스 정답률비교표를 조회해 같은 방법으로 붙여넣거나 파일을 끌어다 놓으세요.',task:'문항 정답률 붙여넣기',done:()=>last.items.length>0,fill:true,prog:()=>`${last.items.length}문항 입력됨`},
@@ -1352,6 +1397,7 @@ fins.forEach((e,k)=>{
       else{const ns=t.split(/[\s\t\n]+/).map(num).filter(isFinite);ns.slice(0,FB.length-k).forEach((n,i)=>fins[k+i].value=Math.round(n));syncFromGrid()}}});
 });
 $('#taFreq').addEventListener('input',()=>{gridEdit=false});
+$('#taClass').addEventListener('paste',ev=>{const t=(ev.clipboardData||window.clipboardData).getData('text');const il=parseIlram(toGrid(t));if(il){ev.preventDefault();const m=applyIlram(il);update();const st=document.querySelector('[data-step="2"] .fst');st.className='st ok';st.textContent=`나이스 교과목별 일람표를 읽었어요: ${m.join(', ')}`}});
 
 /* ---------- 연결 ---------- */
 fillModels(PRESET);
