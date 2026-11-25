@@ -624,9 +624,10 @@ function parseFreq(g){
   for(const row of g){const c=row.map(clean);if(c.some(x=>/급간|구간|점수/.test(x))){cc=c.findIndex(x=>/^(계|합계|전체|인원|인원수|학생수|도수|인원\(명\))$/.test(x));break}}
   const bins=[];
   for(const row of g){
-    let li=row.findIndex(c=>RANGE.test(String(c))||/\d+\s*점?\s*(이상|미만)/.test(String(c)));
+    const okc=c=>{const t=String(c);return t.length<=24&&!/[\[\]가-힣]{0}\[/.test(t)&&!/[가-힣]{4,}/.test(t.replace(/이상|미만|이하|초과/g,''))};
+    let li=row.findIndex(c=>okc(c)&&(RANGE.test(String(c))||/\d+\s*점?\s*(이상|미만)/.test(String(c))));
     let txt,rest;
-    if(li>=0){txt=String(row[li]);rest=row.slice(li+1)}else{const j=row.join(' ');if(!RANGE.test(j))continue;txt=j;rest=[j.slice(j.match(RANGE).index+j.match(RANGE)[0].length)]}
+    if(li>=0){txt=String(row[li]);rest=row.slice(li+1)}else{if(!row.every(okc))continue;const j=row.join(' ');if(!RANGE.test(j))continue;txt=j;rest=[j.slice(j.match(RANGE).index+j.match(RANGE)[0].length)]}
     let lo,hi,m=txt.match(RANGE);
     if(m){lo=+m[1];hi=+m[2]}else if(m=txt.match(/(\d+)\s*점?\s*이상/)){lo=+m[1];hi=100}else if(m=txt.match(/(\d+)\s*점?\s*미만/)){lo=0;hi=+m[1]}else continue;
     if(lo>hi)[lo,hi]=[hi,lo];
@@ -671,24 +672,34 @@ function parseClasses(g){
 /* ---------- 문항정보표 · 성취도 ---------- */
 const ESSAY=/서답|서술|논술|단답/;
 function parseInfo(g){
+  const MARK=/^[○◯●oOvV✓✔√◎]$/;
   for(let r=0;r<g.length;r++){
     const top=g[r].map(clean);
     const has=re=>top.some(c=>re.test(c));
     if(!has(/^(문항|문항번호|번호|문항no)$/i)||!has(/내용|성취기준|난이도|배점|단원|영역/)||has(/^정답률$/))continue;
-    let hdr=top.slice(),start=r+1;const nx=g[r+1];
-    if(nx&&!isFinite(num(nx[0]))&&!isFinite(num(nx[1]))&&nx.some(c=>clean(c))){let last='';hdr=top.map((c,i)=>{if(c)last=c;return (c||last)+clean(nx[i])});start=r+2}
-    const col=re=>hdr.findIndex(c=>re.test(c));
-    const qi=col(/^(문항|문항번호|번호|문항no)/i),si=col(/성취기준/);
+    let hdr=top.slice(),sub=top.map(()=>''),start=r+1;const nx=g[r+1];
+    if(nx&&!nx.some(c=>Number.isInteger(num(c))&&num(c)>=1&&num(c)<=200&&String(c).trim()!=='')&&nx.some(c=>clean(c))){
+      let last='';hdr=top.map((c,i)=>{if(c)last=c;return (c||last)});sub=nx.map(clean);start=r+2}
+    const col=re=>hdr.findIndex((c,i)=>re.test(c+sub[i]));
+    const qi=hdr.findIndex(c=>/^(문항|문항번호|번호|문항no)/i.test(c)),si=col(/성취기준/);
     const ci=[/내용요소/,/단원/,/내용영역/,/영역/,/평가요소/,/내용/].map(col).find(i=>i>=0&&i!==si)??-1;
-    const di=col(/난이도/),ei=col(/예상정답률|예상.*정답/),pi=col(/배점/),ai=col(/^정답$/),ti=col(/유형|형태|형식/);
-    const out=[];let lc='',ls='';
+    // 난이도: 글자로 적는 열 또는 ○ 표시 열(어려움·보통·쉬움 / 상·중·하)
+    const markCols=[];hdr.forEach((c,i)=>{if(/난이도/.test(c)&&/^(어려움|보통|쉬움|상|중상|중|중하|하)$/.test(sub[i]))markCols.push([i,sub[i]])});
+    const di=markCols.length?-1:col(/난이도/),ei=col(/예상정답률|예상.*정답/),pi=col(/배점/);
+    const ai=hdr.findIndex((c,i)=>/^정답$/.test(c)&&!/률/.test(sub[i])),ti=col(/유형|형태|형식/);
+    const out=[];let lc='',ls='',sec='';
     for(let k=start;k<g.length;k++){
-      const row=g[k];const q=num(row[qi]);if(!Number.isInteger(q)||q<1||q>200)continue;
+      const row=g[k];
+      const first=clean(row.find(c=>clean(c))||'');
+      if(/^(선택형|서답형|서술형|논술형|단답형)문항/.test(first)){sec=first.replace(/문항.*/,'');continue}
+      const q=num(row[qi]);if(!Number.isInteger(q)||q<1||q>200)continue;
       const cell=i=>i>=0?String(row[i]??'').trim():'';
       let c=cell(ci),s=cell(si);if(c)lc=c;else c=lc;if(s)ls=s;else s=ls;
       const sc=(s.match(/\[[^\]]+\]/)||[])[0]||s.slice(0,40);
-      const type=cell(ti),ans=ESSAY.test(type)?0:optNo(cell(ai));
-      out.push({q,type,pt:num(cell(pi)),ans,diff:cell(di),er:num(cell(ei)),content:c,std:sc});
+      const type=cell(ti)||sec;
+      let diff=cell(di);if(markCols.length){const m=markCols.find(([i])=>MARK.test(clean(row[i])));diff=m?m[1]:''}
+      const ans=ESSAY.test(type)?0:optNo(cell(ai));
+      out.push({q,type,pt:num(cell(pi)),ans,diff,er:num(cell(ei)),content:c,std:sc});
     }
     if(out.length)return out;
   }
@@ -825,8 +836,8 @@ async function handleFiles(files,st){
       for(const g of grids){
         const ilr=parseIlram(g);if(ilr){got.push(...applyIlram(ilr));continue}
         const rcp=parseRateCompare(g);if(rcp){$('#taItem').value=tsvItems(rcp.items);got.push(`정답률비교표 ${rcp.items.length}문항 평균 정답률${rcp.classes.length?` (${rcp.classes.join('·')}반)`:''}`);continue}
+        const inf=parseInfo(g);if(inf){$('#taMap').value=tsvInfo(inf);const nd=inf.filter(x=>x.diff).length,nc=new Set(inf.map(x=>x.content).filter(Boolean)).size;got.push(`문항정보표 ${inf.length}문항 (난이도 ${nd}개 · 정답 ${inf.filter(x=>x.ans).length}개 · 내용요소 ${nc}개)`);continue}
         const fq=parseFreq(g);if(fq){$('#taFreq').value=tsvFreq(fq);got.push(`급간 ${fq.length}개`);continue}
-        const inf=parseInfo(g);if(inf){$('#taMap').value=tsvInfo(inf);got.push(`문항정보표 ${inf.length}문항`);continue}
         const it=parseItems(g);if(it&&(it.how==='header'||it.how==='wide'||it.how==='neis')){$('#taItem').value=tsvItems(it.items);got.push(`${it.items.length}문항 정답률`);continue}
         const ac=parseAch(g);if(ac){$('#taAch').value=tsvAch(ac.v);got.push('학기말 성취도');continue}
         const cl=parseClasses(g);if(cl&&cl.length>=2&&cl.length<=20&&g.some(r=>/(^|[^가-힣])\d+\s*반(?![가-힣])/.test(r.join(' ')))){$('#taClass').value=tsvClass(cl);got.push(`${cl.length}개 반 평균`)}
@@ -851,6 +862,10 @@ function compute(){
   const info=parseInfo(toGrid($('#taMap').value));
   const D={T,cls,items,bins,info:info||[],infoQ:{},map:{}};
   if(info)info.forEach(x=>{D.infoQ[x.q]=x;if(x.content)D.map[x.q]=x.content});else D.map=parseMap($('#taMap').value);
+  /* 묶음 기준: 내용요소가 문항마다 거의 다르면 성취기준 코드로 묶기 */
+  D.gkey={...D.map};D.groupBy='내용요소';
+  if(info){const nq=info.length,nc=new Set(info.map(x=>x.content).filter(Boolean)).size,ns=new Set(info.map(x=>x.std).filter(Boolean)).size;
+    if(ns>0&&ns<nq*.6&&(nc>=nq*.6||!nc)){D.gkey={};info.forEach(x=>{if(x.std)D.gkey[x.q]=x.std});D.groupBy='성취기준'}}
   items.forEach(i=>{const x=D.infoQ[i.q];if(x&&!i.ans&&x.ans)i.ans=x.ans});
   D.exp=val('expect');D.prev=val('prev');
   D.weighted=cls.length>0&&cls.every(c=>c.n>0);
@@ -901,7 +916,7 @@ function compute(){
   const P=parsePrev($('#taCmp').value);D.prevD=P;
   if(P){
     if(!$('#prev').value.trim())D.prev=NaN;
-    const cur=avgBy(items,i=>D.map[i.q]),pre=avgBy(P.items||[],i=>i.content);
+    const cur=avgBy(items,i=>D.gkey[i.q]),pre=avgBy(P.items||[],i=>i.group||i.content);
     D.cmpC=Object.keys(cur).filter(k=>isFinite(pre[k])).map(c=>({c,p:pre[c],n:cur[c],d:cur[c]-pre[c]}));
   }
 
@@ -946,11 +961,11 @@ function advise(D){
     const weak=D.items.filter(i=>i.rate<Math.max(40,T.lo));
     const keys=Object.keys(D.map).length;
     if(weak.length){
-      if(keys){const g={};weak.forEach(i=>{const k=D.map[i.q]||'내용 미지정';(g[k]=g[k]||[]).push(i)});
+      if(keys){const g={};weak.forEach(i=>{const k=D.gkey[i.q]||D.map[i.q]||'내용 미지정';(g[k]=g[k]||[]).push(i)});
         s3.push(`정답률이 낮았던 내용: ${Object.entries(g).map(([k,a])=>`${k}(${qs(a)}번, 평균 ${f1(a.reduce((s,i)=>s+i.rate,0)/a.length)}%)`).join(', ')}. 다음에 이 내용을 가르칠 때 개념 비교, 예시와 반례 제시, 짧은 확인 퀴즈를 넣어 보세요.`)}
       else s3.push(`정답률 40% 미만 문항(${qs(weak)}번)에 해당하는 성취기준을 확인해 다음 학기 수업에서 보완하세요. 문항별 내용요소를 입력하면 내용별로 정리됩니다.`);
     }
-    if(keys&&D.easy.length){const st=[...new Set(D.easy.map(i=>D.map[i.q]).filter(Boolean))];if(st.length)s3.push(`잘 이해한 내용(${st.join(', ')})은 진도를 조금 줄이고, 어려워한 내용에 시간을 더 배분해도 좋습니다.`)}
+    if(keys&&D.easy.length){const wk=new Set(weak.map(i=>D.gkey[i.q]||D.map[i.q]));const st=[...new Set(D.easy.map(i=>D.gkey[i.q]||D.map[i.q]).filter(k=>k&&!wk.has(k)))];if(st.length)s3.push(`잘 이해한 내용(${st.join(', ')})은 진도를 조금 줄이고, 어려워한 내용에 시간을 더 배분해도 좋습니다.`)}
     if(D.attr.length)s3.push(`많이 고른 오답(${D.attr.slice(0,4).map(a=>`${a.q}번 ${CIRC[a.o-1]}`).join(', ')})에 담긴 오개념을 다음 수업 도입 퀴즈나 토의 주제로 활용해 보세요.`);
   }
   if(D.N){
@@ -989,7 +1004,7 @@ function extra(D,s1,s2,s3){
   if(D.topPt&&isFinite(D.avgRate)&&Math.abs(D.topPtRate-D.avgRate)>=15)s2.push(`배점이 가장 큰 문항(${D.topPt.map(i=>i.q).join(', ')}번, ${D.topPtVal}점)의 평균 정답률이 ${f1(D.topPtRate)}%로 전체보다 ${f1(Math.abs(D.topPtRate-D.avgRate))}%p ${D.topPtRate<D.avgRate?'낮':'높'}습니다. 배점과 난이도가 의도대로 맞물렸는지 확인해 보세요.`);
   if(D.essay.length)s2.push(`서답형 ${D.essay.length}문항${D.essay.some(x=>x.pt>0)?`(배점 ${D.essay.reduce((a,x)=>a+(x.pt||0),0)}점)`:''}은 정답률비교표에 없어 이번 문항 분석에서 빠졌습니다. 채점 결과를 따로 살펴보세요.`);
   if(D.info.length){const weak=D.items.filter(i=>i.rate<Math.max(40,T.lo));const codes=[...new Set(weak.map(i=>D.infoQ[i.q]&&D.infoQ[i.q].std).filter(Boolean))];
-    if(codes.length)s3.push(`보완이 필요한 성취기준: ${codes.slice(0,4).join(', ')}${codes.length>4?' 등':''}.`)}
+    if(codes.length&&D.groupBy!=='성취기준')s3.push(`보완이 필요한 성취기준: ${codes.slice(0,4).join(', ')}${codes.length>4?' 등':''}.`)}
   if(D.prevD){const P=D.prevD;
     if(isFinite(P.gm)&&isFinite(D.gm)){const d=D.gm-P.gm;s1.push(`지난 시험(${P.label}) 학년 평균 ${f1(P.gm)}점보다 ${f1(Math.abs(d))}점 ${d>=0?'높습니다':'낮습니다'}.`)}
     const up=D.cmpC.filter(x=>x.d>=10),dn=D.cmpC.filter(x=>x.d<=-10),fm=a=>a.map(x=>`${x.c}(${f1(x.p)}→${f1(x.n)}%)`).join(', ');
@@ -1069,7 +1084,7 @@ function render(){
     const rows=[['학년 평균',P.gm,D.gm,'점'],['평균 정답률',P.avgRate,D.avgRate,'%'],[`정답률 ${T.hi}% 이상`,P.easy,D.easy?.length,'문항'],['성취도 A 비율',P.ach?pct(P.ach.A||0,Object.values(P.ach).reduce((a,b)=>a+b,0)):NaN,D.achP('A'),'%'],['성취도 E 비율',P.ach?pct(P.ach.E||0,Object.values(P.ach).reduce((a,b)=>a+b,0)):NaN,D.achP('E'),'%']].filter(r=>isFinite(r[1])||isFinite(r[2]));
     const v=(x,u)=>isFinite(x)?(u==='문항'?x:f1(x))+u:'-';
     h2+=`<h3>${n++}. 지난 시험과 비교 <span class="sub">(${esc(P.label)})</span></h3><div class="cols cmp"><table class="kv4"><tr><th>항목</th><th>지난 시험</th><th>이번 시험</th><th>변화</th></tr>${rows.map(r=>`<tr><th>${r[0]}</th><td>${v(r[1],r[3])}</td><td>${v(r[2],r[3])}</td><td>${dl(r[1],r[2])}</td></tr>`).join('')}</table>
-    ${D.cmpC.length?`<table class="kv4"><tr><th>내용요소</th><th>지난</th><th>이번</th><th>변화</th></tr>${D.cmpC.slice(0,6).map(x=>`<tr><th class="c">${esc(x.c)}</th><td>${f1(x.p)}%</td><td>${f1(x.n)}%</td><td>${x.d<=-10||x.d>=10?`<span class="pen">${dl(x.p,x.n)}</span>`:dl(x.p,x.n)}</td></tr>`).join('')}</table>`:'<p class="note">내용요소별 비교는 두 시험 모두 문항정보표가 있을 때 나옵니다.</p>'}</div>`;
+    ${D.cmpC.length?`<table class="kv4"><tr><th>${D.groupBy}</th><th>지난</th><th>이번</th><th>변화</th></tr>${D.cmpC.slice(0,6).map(x=>`<tr><th class="c">${esc(x.c)}</th><td>${f1(x.p)}%</td><td>${f1(x.n)}%</td><td>${x.d<=-10||x.d>=10?`<span class="pen">${dl(x.p,x.n)}</span>`:dl(x.p,x.n)}</td></tr>`).join('')}</table>`:'<p class="note">내용요소별 비교는 두 시험 모두 문항정보표가 있을 때 나옵니다.</p>'}</div>`;
   }
   h2+=`<h3>${n}. 분석 및 개선 방향</h3><div class="advs">
   <div class="adv"><h4>1) 시험 결과 분석</h4><ul contenteditable="true" id="adv1"></ul></div>
@@ -1124,7 +1139,7 @@ function summaryData(){
   const D=last;
   return{시험:`${$('#year').value}학년도 ${$('#exam').value}`,교과목:$('#subject').value,학년평균:+f1(D.gm)||null,예상평균:isFinite(D.exp)?D.exp:null,직전시험평균:isFinite(D.prev)?D.prev:null,
     학급평균:D.cls.map(c=>({반:c.c,평균:+f1(c.m)})),학급편차:isFinite(D.gap)?+f1(D.gap):null,
-    문항:D.items.map(i=>({번호:i.q,정답률:+f1(i.rate),내용요소:D.map[i.q]||undefined,정답:i.ans||undefined,선지응답률:i.opts||undefined})),
+    문항:D.items.map(i=>({번호:i.q,정답률:+f1(i.rate),내용요소:D.map[i.q]||undefined,성취기준:(D.infoQ[i.q]||{}).std||undefined,정답:i.ans||undefined,선지응답률:i.opts||undefined})),
     급간분포:D.bins.map(b=>({급간:`${b.lo}~${b.hi}`,인원:b.c})),응시인원:D.N||null,
     예상난이도와_크게_어긋난_문항:(D.pred||[]).filter(x=>x.big).map(x=>({번호:x.q,예상:x.exp,정답률:+f1(x.rate)})),
     학기말성취도:D.ach||undefined,
@@ -1257,7 +1272,7 @@ function exportData(){const D=last;
     meta:{year:$('#year').value,exam:$('#exam').value,grade:$('#grade').value,subject:$('#subject').value},
     gm:isFinite(D.gm)?+f1(D.gm):null,exp:isFinite(D.exp)?D.exp:null,avgRate:isFinite(D.avgRate)?+f1(D.avgRate):null,
     easy:D.easy?D.easy.length:null,hard:D.hard?D.hard.length:null,N:D.N||null,ach:D.ach||null,
-    items:D.items.map(i=>({q:i.q,rate:+f1(i.rate),content:D.map[i.q]||''}))};
+    items:D.items.map(i=>({q:i.q,rate:+f1(i.rate),content:D.map[i.q]||'',group:D.gkey[i.q]||''}))};
 }
 function fname(suffix){return[$('#year').value,$('#exam').value,$('#subject').value,$('#teacher').value,suffix].map(v=>String(v).trim()).filter(Boolean).join('_').replace(/[\\/:*?"<>|\s]+/g,'_')}
 const HKEY='history';
