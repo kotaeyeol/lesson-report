@@ -301,7 +301,7 @@ body.dragging #dropTip{display:block}
     <p class="grp">필수 자료</p>
     <button class="sbtn" role="tab" data-go="1"><i>1</i>기본 정보</button>
     <button class="sbtn" role="tab" data-go="2"><i>2</i>학급 평균</button>
-    <button class="sbtn" role="tab" data-go="3"><i>3</i>문항 정답률</button>
+    <button class="sbtn" role="tab" data-go="3"><i>3</i>정답률 비교</button>
     <button class="sbtn" role="tab" data-go="4"><i>4</i>문항정보표</button>
     <button class="sbtn" role="tab" data-go="5"><i>5</i>급간 분포</button>
     <p class="grp">더 자세히 (선택)</p>
@@ -359,12 +359,12 @@ body.dragging #dropTip{display:block}
   </section>
 
   <section class="card" data-step="3" role="tabpanel">
-    <p class="kicker">3단계 · 문항 정답률</p>
-    <h2>문항별 정답률을 넣어 주세요</h2>
+    <p class="kicker">3단계 · 정답률 비교</p>
+    <h2>정답률 비교표를 넣어 주세요</h2>
     <ol class="how">
-      <li>나이스 › 성적 › 정기시험조회/통계 › <b>정답률비교표 조회</b></li>
-      <li>선택형 문항만 해당돼요</li>
-      <li>표 전체를 복사해 붙여넣거나 엑셀 파일 끌어다 놓기</li>
+      <li>나이스 › 성적 › 정기시험조회/통계 › 정기시험통계 › <b>정답률비교표</b></li>
+      <li>고사·학년·과목을 고르고 조회 (선택형 문항만 해당돼요)</li>
+      <li>엑셀로 저장해 끌어다 놓거나 표를 복사해 붙여넣기</li>
     </ol>
     <label class="drop"><input type="file" multiple accept=".xls,.xlsx,.csv,.htm,.html,.txt"><div><strong>엑셀 파일 끌어다 놓기</strong><br><span>또는 눌러서 고르기</span></div></label>
     <div class="st fst" role="status"></div>
@@ -376,8 +376,9 @@ body.dragging #dropTip{display:block}
     <p class="kicker">4단계 · 문항정보표</p>
     <h2>문항정보표를 넣어 주세요</h2>
     <ol class="how">
-      <li>나이스 › 성적 › 정기시험조회/통계 › <b>문항정보표</b> 조회</li>
-      <li>엑셀로 저장해 끌어다 놓거나 표를 복사해 붙여넣기</li>
+      <li>나이스 › 성적 › 정기시험 › <b>문항정보표관리</b></li>
+      <li>[출력] → [미리보기] → <b>엑셀 저장</b></li>
+      <li>저장한 엑셀 파일을 아래 점선 칸에 끌어다 놓기</li>
       <li>예상 난이도·정답·배점·내용요소·성취기준을 읽어 분석해요</li>
     </ol>
     <p class="hint" style="margin:-4px 0 10px">성적 처리가 끝난 뒤에 사용하세요. 문항 원문(문제 내용)은 넣지 않아도 돼요.</p>
@@ -939,7 +940,7 @@ function advise(D){
     if(D.half&&D.half.a-D.half.b>=15)s2.push(`${D.half.from}번 이후 문항의 평균 정답률이 앞부분보다 ${f1(D.half.a-D.half.b)}%p 낮습니다. 어려운 문항이 뒤에 몰렸거나 시간이 부족했을 수 있습니다.`);
     if(D.attr.length)s2.push(`특정 오답에 응답이 몰린 문항이 있습니다(${D.attr.map(a=>`${a.q}번 ${CIRC[a.o-1]} ${f1(a.r)}%`).join(', ')}). 그 선지가 정답과 혼동될 만큼 애매하지 않았는지 확인하세요.`);
     if(D.dead.length)s2.push(`선택률 3% 미만으로 거의 고르지 않은 오답 선지가 ${D.dead.length}개 있습니다(${D.dead.slice(0,8).map(d=>`${d.q}번 ${CIRC[d.o-1]}`).join(', ')}${D.dead.length>8?' 등':''}). 그럴듯한 오답으로 바꾸면 변별력이 올라갑니다.`);
-  }else s2.push('문항별 정답률을 넣으면 문항 점검 내용이 추가됩니다.');
+  }else s2.push('3단계에 정답률 비교표를 넣으면 문항 점검 내용이 추가됩니다.');
   if(isFinite(D.exp)&&isFinite(D.gm)&&Math.abs(D.gm-D.exp)>=T.exp)s2.push('다음 출제 계획서에는 문항별 예상 정답률을 적어 두고 결과와 비교해 보세요. 어느 문항에서 예측이 어긋났는지 바로 보입니다.');
   if(n){
     const weak=D.items.filter(i=>i.rate<Math.max(40,T.lo));
@@ -1041,7 +1042,7 @@ function render(){
     h+=bars(D.items.map(i=>({l:String(i.q),v:i.rate,flag:i.rate>=T.hi?'hi':i.rate<=T.lo?'lo':''})),{W:714,H:190,lines:[{v:T.hi,t:T.hi+'%',c:'#d1342a'},{v:T.lo,t:T.lo+'%',c:'#1c5bd6'}]});
     const ch=[...D.easy.map(i=>`<span class="chip">${i.q}번 ${f1(i.rate)}%</span>`),...D.hard.map(i=>`<span class="chip lo">${i.q}번 ${f1(i.rate)}%</span>`)];
     if(ch.length)h+=`<div class="chips">${ch.join('')}</div>`;
-  }else h+='<div class="empty">문항별 정답률을 넣어 주세요.</div>';
+  }else h+='<div class="empty">3단계에 정답률 비교표를 넣어 주세요.</div>';
   h+=`<h3>3. 점수 분포${D.ach?'와 학기말 성취도':''}</h3>`;
   if(D.bins.length){
     h+=`<div class="cols rev"><div>${bars([...D.bins].reverse().map(b=>({l:b.lo+'~',v:b.c,flag:b===D.mode?'lo':''})),{W:480,H:175,max:Math.ceil(Math.max(...D.bins.map(b=>b.c))*1.18/5)*5||5,unit:'명'})}</div>
@@ -1212,7 +1213,7 @@ const SAMPLE={subject:'기술·가정',teacher:'고태열',expect:'65',
 
 
 /* ---------- 단계 ---------- */
-const NAMES=['기본 정보','학급 평균','문항 정답률','문항정보표','급간 분포','학기말 성취도','지난 시험 비교','보고서 완성'];
+const NAMES=['기본 정보','학급 평균','정답률 비교','문항정보표','급간 분포','학기말 성취도','지난 시험 비교','보고서 완성'];
 const LASTSTEP=NAMES.length;
 let cur=1;
 const tabs=[...document.querySelectorAll('.sbtn')];
@@ -1325,10 +1326,10 @@ const TOUR=[
   {go:2,sel:['[data-step="2"] .how'],t:'나이스에서 표 찾기',x:'나이스 정기시험조회 화면에서 [교과목별일람표조회-전체학급] 탭을 열고 조회하세요. 엑셀로 내려받아 두면 다음 단계에서 끌어다 놓기만 하면 돼요. 준비되면 [다음]을 누르세요.'},
   {go:2,sel:['[data-step="2"] .drop','#taClass'],t:'학급 평균 넣기',x:'내려받은 엑셀 파일을 점선 칸에 끌어다 놓으세요. 학급 평균, 급간 분포, 시험 정보가 한 번에 채워져요. 엑셀이 없으면 나이스 표를 복사해 아래 칸에 붙여넣어도 돼요.',task:'학급 평균 붙여넣기',done:()=>last.cls.length>0,fill:true,prog:()=>`${last.cls.map(c=>c.c+'반').join(', ')} 입력됨`},
   {go:2,sel:['#stClass'],t:'제대로 읽혔는지 확인',x:'초록 글씨로 읽은 반과 학년 평균이 나오면 성공이에요. 오른쪽 보고서에도 그래프가 생겼어요.'},
-  {sel:['#nextBtn'],t:'3단계로',x:'[다음 →] 버튼을 눌러 문항 정답률 단계로 가세요.',task:'[다음 →] 누르기',done:()=>cur>=3,auto:true},
-  {go:3,sel:['[data-step="3"] .how','[data-step="3"] .drop','#taItem'],t:'문항 정답률 넣기',x:'나이스 정답률비교표를 조회해 같은 방법으로 붙여넣거나 파일을 끌어다 놓으세요.',task:'문항 정답률 붙여넣기',done:()=>last.items.length>0,fill:true,prog:()=>`${last.items.length}문항 입력됨`},
+  {sel:['#nextBtn'],t:'3단계로',x:'[다음 →] 버튼을 눌러 정답률 비교 단계로 가세요.',task:'[다음 →] 누르기',done:()=>cur>=3,auto:true},
+  {go:3,sel:['[data-step="3"] .how','[data-step="3"] .drop','#taItem'],t:'정답률 비교표 넣기',x:'나이스 정기시험통계에서 정답률비교표를 조회해 엑셀로 저장한 뒤 끌어다 놓으세요. 표를 복사해 붙여넣어도 돼요.',task:'정답률 비교표 넣기',done:()=>last.items.length>0,fill:true,prog:()=>`${last.items.length}문항 입력됨`},
   {sel:['#nextBtn'],t:'4단계로',x:'[다음 →] 버튼을 눌러 문항정보표 단계로 가세요.',task:'[다음 →] 누르기',done:()=>cur>=4,auto:true},
-  {go:4,sel:['[data-step="4"] .how','[data-step="4"] .drop','#taMap'],t:'문항정보표 넣기',x:'나이스에서 문항정보표를 조회해 붙여넣거나 엑셀 파일을 끌어다 놓으세요. 예상 난이도와 내용요소가 있으면 조언이 훨씬 구체적이 돼요.',task:'문항정보표 붙여넣기',done:()=>last.info.length>0||Object.keys(last.map).length>0,fill:true,prog:()=>last.info.length?`${last.info.length}문항 정보 입력됨`:`${Object.keys(last.map).length}문항 내용요소 입력됨`},
+  {go:4,sel:['[data-step="4"] .how','[data-step="4"] .drop','#taMap'],t:'문항정보표 넣기',x:'나이스 정기시험 › 문항정보표관리에서 [출력] → [미리보기] → 엑셀 저장을 한 뒤, 그 파일을 끌어다 놓으세요. 예상 난이도와 내용요소가 있으면 조언이 훨씬 구체적이 돼요.',task:'문항정보표 붙여넣기',done:()=>last.info.length>0||Object.keys(last.map).length>0,fill:true,prog:()=>last.info.length?`${last.info.length}문항 정보 입력됨`:`${Object.keys(last.map).length}문항 내용요소 입력됨`},
   {sel:['#nextBtn'],t:'5단계로',x:'[다음 →] 버튼을 눌러 급간 분포 단계로 가세요.',task:'[다음 →] 누르기',done:()=>cur>=5,auto:true},
   {go:5,sel:['[data-step="5"] .how','#fgrid','.fsum'],t:'급간 분포 넣기',x:'도수분포표를 급간 10으로 조회하세요. 급간은 미리 적혀 있으니 각 칸에 인원만 적으면 돼요. 나이스 표를 첫 칸에 통째로 붙여넣어도 자동으로 채워져요.',task:'급간 인원 적기',done:()=>last.bins.length>0,fill:true,prog:()=>`합계 ${last.N}명 입력됨`},
   {go:5,sel:['.preview'],t:'필수 자료 끝!',x:'오른쪽 보고서가 다 채워졌어요. [크게 보기]로 자세히 볼 수 있어요. 2쪽에는 분석과 개선 방향 문장이 자동으로 작성됩니다.'},
