@@ -177,6 +177,8 @@ body.dragging #dropTip{display:block}
 .hist{display:grid;gap:6px;margin:4px 0 12px}.hist>b{font-size:14px;color:var(--ink)}
 #histList{display:grid;gap:6px;max-height:220px;overflow:auto}
 .hbtn{display:grid;text-align:left;gap:1px;min-height:52px;padding:8px 12px;border-radius:12px}.hbtn b{font-size:14.5px}.hbtn span{font-size:12.5px;color:var(--muted)}
+.hbtn em{font-style:normal;font-size:11.5px;font-weight:700;color:var(--blue);background:var(--card);border:1px solid var(--blue);border-radius:99px;padding:0 7px;margin-left:4px;vertical-align:1px}
+.hbtn.me{border:1px dashed var(--line);border-radius:12px;background:var(--field);cursor:default}
 .hbtn.on{border-color:var(--blue);background:var(--blue-soft);box-shadow:inset 3px 0 0 var(--blue)}
 .hclear{min-height:34px;font-size:13px;border:0;background:none;color:var(--muted);text-decoration:underline;justify-self:start}
 .hfoot{display:flex;justify-content:space-between}
@@ -1263,10 +1265,16 @@ function saveHist(){const d=exportData();if(!d.items.length&&!isFinite(d.gm))ret
   const h=getHist().filter(x=>!(x.label===d.label&&(x.meta||{}).subject===d.meta.subject));h.unshift(d);store.set(HKEY,JSON.stringify(h.slice(0,12)));renderHist()}
 function renderHist(){
   const sub=$('#subject').value.trim(),lab=`${$('#year').value} ${$('#exam').value}`.trim(),curP=parsePrev($('#taCmp').value);
-  const h=getHist().filter(x=>!(x.label===lab&&(x.meta||{}).subject===sub));
-  $('#histList').innerHTML=h.length?h.map((x,k)=>{const on=curP&&curP.label===x.label&&(curP.meta||{}).subject===(x.meta||{}).subject;
-    return `<button type="button" class="hbtn${on?' on':''}" data-h="${k}"><b>${esc(x.label)}</b><span>${esc((x.meta||{}).subject||'')} · 평균 ${x.gm??'-'}점 · ${esc(x.savedAt||'')} 기록</span></button>`}).join('')+`<div class="hfoot">${curP?'<button type="button" class="hclear" id="hClear">비교 그만하기</button>':'<span></span>'}<button type="button" class="hclear" id="hDel">기록 전체 삭제</button></div>`:'<p class="empty-h">아직 기록이 없어요. 보고서를 PDF로 저장하면 여기에 쌓여요.</p>';
-  $('#histList').querySelectorAll('.hbtn').forEach(b=>b.addEventListener('click',()=>{$('#taCmp').value=JSON.stringify(h[+b.dataset.h]);update();setTimeout(renderHist,200)}));
+  const all=getHist(),isCur=x=>x.label===lab&&(x.meta||{}).subject===sub;
+  const others=all.filter(x=>!isCur(x)),mine=all.find(isCur);
+  let h='';
+  if(mine)h+=`<div class="hbtn me" aria-disabled="true"><b>${esc(mine.label)} <em>지금 보고서</em></b><span>${esc((mine.meta||{}).subject||'')} · 평균 ${mine.gm??'-'}점 · ${esc(mine.savedAt||'')} 기록됨 · 다음 시험 때 여기서 고를 수 있어요</span></div>`;
+  h+=others.map((x,k)=>{const ps=(curP&&curP.meta||{}).subject,on=curP&&curP.label===x.label&&(!ps||ps===(x.meta||{}).subject);
+    return `<button type="button" class="hbtn${on?' on':''}" data-h="${k}"><b>${esc(x.label)}${on?' <em>비교 중</em>':''}</b><span>${esc((x.meta||{}).subject||'')} · 평균 ${x.gm??'-'}점 · ${esc(x.savedAt||'')} 기록</span></button>`}).join('');
+  if(!others.length)h+=`<p class="empty-h">${mine?'비교할 지난 시험 기록이 아직 없어요. 다른 시험 보고서를 PDF로 저장하면 여기에 쌓여요.':'아직 기록이 없어요. 보고서를 PDF로 저장하면 여기에 쌓여요.'}</p>`;
+  if(all.length)h+=`<div class="hfoot">${curP?'<button type="button" class="hclear" id="hClear">비교 그만하기</button>':'<span></span>'}<button type="button" class="hclear" id="hDel">기록 전체 삭제</button></div>`;
+  $('#histList').innerHTML=h;
+  $('#histList').querySelectorAll('button.hbtn').forEach(b=>b.addEventListener('click',()=>{$('#taCmp').value=JSON.stringify(others[+b.dataset.h]);update();setTimeout(renderHist,200)}));
   const hc=$('#hClear');if(hc)hc.addEventListener('click',()=>{$('#taCmp').value='';update();setTimeout(renderHist,200)});
   const hd=$('#hDel');if(hd)hd.addEventListener('click',()=>{if(hd.dataset.sure){store.set(HKEY,'[]');renderHist()}else{hd.dataset.sure='1';hd.textContent='한 번 더 누르면 모든 기록을 지워요';hd.style.color='var(--red)'}});
 }
@@ -1285,7 +1293,8 @@ async function readCmpFile(f){
 /* ---------- PDF ---------- */
 async function savePdf(){
   const st=$('#toolSt');st.className='st';
-  if(!window.html2canvas||!window.jspdf){st.className='st bad';st.textContent='PDF 도구를 불러오지 못했어요. 인터넷 연결을 확인하거나 [인쇄]에서 "PDF로 저장"을 고르세요.';return}
+  if(!window.html2canvas||!window.jspdf){saveHist();st.className='st bad';st.textContent='(결과는 비교용으로 기록했어요) PDF 도구를 불러오지 못했어요. 인터넷 연결을 확인하거나 [인쇄]에서 "PDF로 저장"을 고르세요.';return}
+  saveHist();
   st.textContent='PDF를 만드는 중이에요…';$('#pdfBtn').disabled=true;
   const holder=document.createElement('div');holder.style.cssText='position:fixed;left:-9999px;top:0;';document.body.appendChild(holder);
   try{
@@ -1301,7 +1310,7 @@ async function savePdf(){
     }
     const name=fname('성적분석');
     try{pdf.setProperties({title:name,subject:'성적분석 보고서 도우미 (화성 반월고등학교)',author:$('#teacher').value||'',keywords:'SBR1:'+btoa(unescape(encodeURIComponent(JSON.stringify(exportData())))),creator:'공학하는 기술쌤'})}catch(e){}
-    pdf.save(name+'.pdf');saveHist();
+    pdf.save(name+'.pdf');
     st.className='st ok';st.textContent=`${name}.pdf 를 저장했어요. 다음 시험 비교용으로도 기록해 두었어요.`;
   }catch(e){st.className='st bad';st.textContent='PDF를 만들지 못했어요: '+e.message+'. [인쇄]에서 "PDF로 저장"을 골라도 됩니다.'}
   holder.remove();$('#pdfBtn').disabled=false;
