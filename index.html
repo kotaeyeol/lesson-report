@@ -166,6 +166,8 @@ pre{background:#0f1f38;color:#dbe6f7;border-radius:10px;padding:10px;font-size:1
 .kguide li::marker{color:var(--blue);font-weight:700}
 .kbtn{display:flex;align-items:center;justify-content:center;min-height:44px;border-radius:10px;background:var(--blue);color:light-dark(#fff,#0d1626);font-weight:600;text-decoration:none;font-size:15px}
 .kblock{margin-bottom:10px}
+.undo{display:grid;gap:6px;margin-top:8px;padding:8px 10px;border-radius:10px;background:var(--blue-soft);font-size:13px;color:var(--ink)}
+.undo button{min-height:40px;font-size:14px;width:100%}
 .card.dropon{outline:3px dashed var(--blue);outline-offset:-3px;background:var(--blue-soft)}
 .card.dropon .drop{background:var(--card);border-width:2px}
 #dropTip{position:fixed;left:50%;top:10px;transform:translateX(-50%);z-index:50;background:var(--blue);color:light-dark(#fff,#0d1626);font-weight:600;padding:10px 18px;border-radius:99px;box-shadow:0 10px 30px -10px rgba(0,0,0,.4);pointer-events:none;display:none;font-size:15px}
@@ -475,7 +477,8 @@ body.dragging #dropTip{display:block}
         <p class="hint" style="margin:6px 0 0">잘 모르겠다면 맨 위 추천 모델 그대로 두세요.</p>
       </div>
       <div class="kblock" id="runBlock"><div class="pair"><button class="main" id="aiRun" type="button">AI 맞춤 조언 받기</button><button id="aiCopy" type="button">질문만 복사</button></div>
-      <div class="st" id="aiSt" role="status"></div></div>
+      <div class="st" id="aiSt" role="status"></div>
+      <div class="undo" id="aiUndoBox" hidden><span id="aiUndoTxt">보고서 2쪽에 AI 조언이 들어갔어요.</span><button type="button" id="aiUndo">자동 문장으로 되돌리기</button></div></div>
     </details>
     <details class="sub">
       <summary>판단 기준값 바꾸기</summary>
@@ -1330,7 +1333,7 @@ const TOUR=[
   {go:8,open:true,pad:12,sel:['#keyBlock'],t:'API 키 붙여넣기',x:'복사한 키를 이 칸에 붙여넣기(Ctrl+V) 하세요. 붙여넣으면 키가 맞는지 바로 확인하고, 쓸 수 있는 모델 목록을 불러와요.',task:'API 키 붙여넣기',done:()=>$('#apiKey').value.trim().length>=20,fill:true,prog:()=>$('#modelSt').textContent||'키를 확인하는 중이에요…'},
   {go:8,open:true,pad:12,sel:['#modelBlock'],t:'모델 고르기',x:'쓸 수 있는 모델이 목록에 나와요. 잘 모르겠다면 맨 위 추천 모델 그대로 두면 됩니다. Flash 모델이 빠르고, Pro 모델은 느리지만 더 꼼꼼해요.'},
   {go:8,open:true,pad:12,sel:['#runBlock'],t:'AI 맞춤 조언 받기',x:'[AI 맞춤 조언 받기]를 누르세요. 10~30초쯤 걸려요. 빨간 글씨로 오류가 나오면 키를 다시 붙여넣거나 다른 모델을 골라 보세요.',task:'AI 맞춤 조언 받기',done:()=>tourFlags.ai},
-  {go:8,sel:['.preview'],t:'조언이 보고서에 들어갔어요',x:"보고서 2쪽 '분석 및 개선 방향'이 AI 맞춤 조언으로 바뀌었어요. 눌러서 직접 고칠 수 있고, 마음에 안 들면 [자동 문장으로 되돌리기]를 누르세요."},
+  {go:8,sel:['.preview'],t:'조언이 보고서에 들어갔어요',x:"보고서 2쪽 '분석 및 개선 방향'이 AI 맞춤 조언으로 바뀌었어요. 눌러서 직접 고칠 수 있고, 마음에 안 들면 AI 버튼 아래 [자동 문장으로 되돌리기]를 누르세요. 되돌린 뒤에도 [AI 조언 다시 넣기]로 바꿀 수 있어요."},
   {go:8,id:'end',sel:['#helpBtn'],t:'모두 마쳤어요!',x:'다음에도 막히면 이 [사용법 · 따라하기] 버튼을 누르세요. 수고하셨습니다.'}
 ];
 let tIdx=-1,autoT=0;
@@ -1494,6 +1497,17 @@ $('#taClass').addEventListener('paste',ev=>{const t=(ev.clipboardData||window.cl
    if(st.id==='toast'){st.classList.add('show');clearTimeout(st._t);st._t=setTimeout(()=>st.classList.remove('show'),6000)}
  });
 }
+/* ---------- AI 조언 되돌리기 ---------- */
+let aiHtml=null,aiShown=false;
+function undoUI(){$('#aiUndoBox').hidden=!aiHtml;if(!aiHtml)return;
+  $('#aiUndoTxt').textContent=aiShown?'보고서 2쪽에 AI 조언이 들어가 있어요.':'지금은 자동 문장이에요. AI 조언은 보관해 두었어요.';
+  $('#aiUndo').textContent=aiShown?'자동 문장으로 되돌리기':'AI 조언 다시 넣기'}
+$('#aiUndo').addEventListener('click',()=>{
+  if(aiShown){edited=false;render();aiShown=false;$('#aiSt').className='st';$('#aiSt').textContent='자동 문장으로 되돌렸어요.'}
+  else{[1,2,3].forEach((k,i)=>$('#adv'+k).innerHTML=aiHtml[i]);edited=true;fitText();aiShown=true;$('#aiSt').className='st ok';$('#aiSt').textContent='AI 조언을 다시 넣었어요.'}
+  undoUI()});
+$('#regen').addEventListener('click',()=>{if(aiHtml){aiShown=false;undoUI()}});
+
 /* ---------- 밝게/어둡게 ---------- */
 {const root=document.documentElement,btn=$('#themeBtn'),badge=btn.querySelector('.tbadge');
  const isDark=()=>root.dataset.theme?root.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;
@@ -1535,7 +1549,7 @@ $('#aiRun').addEventListener('click',async()=>{if(!agreed())return;
     const txt=await callAI(buildPrompt());const p=parseAI(txt);
     if(!p[1].length&&!p[2].length&&!p[3].length)throw new Error('응답 형식을 읽지 못했어요');
     [1,2,3].forEach(k=>{if(p[k].length)$('#adv'+k).innerHTML=p[k].map(s=>`<li>${esc(s)}</li>`).join('')});edited=true;fitText();
-    tourFlags.ai=true;tourCheck();
+    tourFlags.ai=true;aiHtml=[1,2,3].map(k=>$('#adv'+k).innerHTML);aiShown=true;undoUI();tourCheck();
     const bad=checkNums(txt);st.className='st '+(bad.length?'bad':'ok');
     st.textContent=bad.length?`AI 맞춤 조언을 받았어요. 보고서 2쪽에 반영했어요. 다만 데이터에 없는 숫자(${bad.slice(0,6).join(', ')})가 있으니 확인해 주세요.`:'AI 맞춤 조언을 받았어요. 보고서 2쪽에 반영했어요. 숫자는 모두 데이터와 일치합니다.';
   }catch(e){st.className='st bad';st.textContent=`연결하지 못했어요: ${e.message}. 키와 모델을 확인하거나, '질문만 복사'로 Gemini 화면에 붙여넣어 쓰세요.`}
