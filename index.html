@@ -142,6 +142,12 @@ pre{background:#0f1f38;color:#dbe6f7;border-radius:10px;padding:10px;font-size:1
 .kguide li::marker{color:var(--blue);font-weight:700}
 .kbtn{display:flex;align-items:center;justify-content:center;min-height:44px;border-radius:10px;background:var(--blue);color:light-dark(#fff,#0d1626);font-weight:600;text-decoration:none;font-size:15px}
 .kblock{margin-bottom:10px}
+.card.dropon{outline:3px dashed var(--blue);outline-offset:-3px;background:var(--blue-soft)}
+.card.dropon .drop{background:var(--card);border-width:2px}
+#dropTip{position:fixed;left:50%;top:10px;transform:translateX(-50%);z-index:50;background:var(--blue);color:light-dark(#fff,#0d1626);font-weight:600;padding:10px 18px;border-radius:99px;box-shadow:0 10px 30px -10px rgba(0,0,0,.4);pointer-events:none;display:none;font-size:15px}
+body.dragging #dropTip{display:block}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:50;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 16px;box-shadow:0 10px 30px -10px rgba(0,0,0,.35);max-width:min(560px,90vw);display:none;margin:0}
+#toast.show{display:block}
 .hist{display:grid;gap:6px;margin:4px 0 12px}.hist>b{font-size:14px;color:var(--ink)}
 #histList{display:grid;gap:6px;max-height:220px;overflow:auto}
 .hbtn{display:grid;text-align:left;gap:1px;min-height:52px;padding:8px 12px;border-radius:12px}.hbtn b{font-size:14.5px}.hbtn span{font-size:12.5px;color:var(--muted)}
@@ -485,6 +491,9 @@ pre{background:#0f1f38;color:#dbe6f7;border-radius:10px;padding:10px;font-size:1
   <div class="mbox info" id="infoBox"></div>
 </div>
 
+<div id="dropTip" aria-hidden="true"></div>
+<div id="toast" class="st" role="status"></div>
+
 <div id="tour" hidden>
   <svg id="tourSvg" aria-hidden="true"></svg>
   <div class="tbox" id="tbox" role="dialog" aria-live="polite">
@@ -751,7 +760,7 @@ async function handleFiles(files,st){
       msgs.push(got.length?`${f.name}: ${got.join(', ')} 읽음`:`${f.name}: 표를 찾지 못했어요. 나이스 화면에서 표를 복사해 아래 칸에 붙여넣어 주세요.`);
     }catch(e){msgs.push(`${f.name}: 열지 못했어요 (${e.message})`)}
   }
-  st.textContent=msgs.join(' / ');st.className='st '+(msgs.some(m=>/못/.test(m))?'bad':'ok');
+  st.textContent=msgs.join(' / ');st.classList.remove('ok','bad');st.classList.add(msgs.some(m=>/못/.test(m))?'bad':'ok');
   update();
 }
 
@@ -1397,8 +1406,26 @@ fins.forEach((e,k)=>{
       else{const ns=t.split(/[\s\t\n]+/).map(num).filter(isFinite);ns.slice(0,FB.length-k).forEach((n,i)=>fins[k+i].value=Math.round(n));syncFromGrid()}}});
 });
 $('#taFreq').addEventListener('input',()=>{gridEdit=false});
-$('#taClass').addEventListener('paste',ev=>{const t=(ev.clipboardData||window.clipboardData).getData('text');const il=parseIlram(toGrid(t));if(il){ev.preventDefault();const m=applyIlram(il);update();const st=document.querySelector('[data-step="2"] .fst');st.className='st ok';st.textContent=`나이스 교과목별 일람표를 읽었어요: ${m.join(', ')}`}});
+$('#taClass').addEventListener('paste',ev=>{const t=(ev.clipboardData||window.clipboardData).getData('text');const il=parseIlram(toGrid(t));if(il){ev.preventDefault();const m=applyIlram(il);update();const st=document.querySelector('[data-step="2"] .fst');st.classList.remove('bad');st.classList.add('ok');st.textContent=`나이스 교과목별 일람표를 읽었어요: ${m.join(', ')}`}});
 
+
+/* ---------- 어디에 놓아도 파일 읽기 ---------- */
+{let depth=0;
+ const isFile=e=>e.dataTransfer&&[...(e.dataTransfer.types||[])].includes('Files');
+ const card=()=>document.querySelector(`[data-step="${cur}"]`);
+ const show=on=>{document.body.classList.toggle('dragging',on);const c=card();if(c)c.classList.toggle('dropon',on);$('#dropTip').textContent=cur===7?'놓으면 지난 보고서 PDF로 읽어요':cur===LASTSTEP?'놓으면 자료를 읽어 알맞은 단계에 채워요':`놓으면 ${cur}단계 자료로 읽어요 (다른 단계 자료도 알아서 채워요)`};
+ document.addEventListener('dragenter',e=>{if(!isFile(e))return;e.preventDefault();depth++;show(true)});
+ document.addEventListener('dragover',e=>{if(!isFile(e))return;e.preventDefault();e.dataTransfer.dropEffect='copy'});
+ document.addEventListener('dragleave',e=>{if(!isFile(e))return;depth=Math.max(0,depth-1);if(!depth)show(false)});
+ document.addEventListener('drop',e=>{if(!isFile(e))return;e.preventDefault();depth=0;show(false);
+   const files=[...e.dataTransfer.files];if(!files.length)return;
+   if(cur===7){readCmpFile(files[0]);return}
+   const c=card();let st=c&&c.querySelector('.fst');
+   if(st){const d=st.closest('details');if(d)d.open=true}else st=$('#toast');
+   handleFiles(files,st);
+   if(st.id==='toast'){st.classList.add('show');clearTimeout(st._t);st._t=setTimeout(()=>st.classList.remove('show'),6000)}
+ });
+}
 /* ---------- 연결 ---------- */
 fillModels(PRESET);
 FIELDS.forEach(id=>{if(id==='aiModel')return;const v=store.get(id);if(v!==null)$('#'+id).value=v});modelVis();
@@ -1410,9 +1437,6 @@ $('#aiBox').addEventListener('toggle',()=>{if($('#aiBox').open)loadModels()});
 document.querySelectorAll('.drop:not(.cmp)').forEach(dz=>{
   const inp=dz.querySelector('input'),st=dz.nextElementSibling;
   inp.addEventListener('change',e=>{handleFiles([...e.target.files],st);e.target.value=''});
-  ['dragenter','dragover'].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.add('on')}));
-  ['dragleave','drop'].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.remove('on')}));
-  dz.addEventListener('drop',e=>handleFiles([...e.dataTransfer.files],st));
 });
 $('#sample').addEventListener('click',()=>{Object.entries(SAMPLE).forEach(([k,v])=>$('#'+k).value=v);edited=false;update();go(LASTSTEP);$('#toolSt').className='st';$('#toolSt').textContent='예시 데이터입니다(기존 양식의 수치 일부와 임의 값). 1단계부터 실제 자료로 바꿔 넣어 보세요.'});
 $('#reset').addEventListener('click',()=>{['subject','teacher','expect','prev','taClass','taItem','taFreq','taMap','taAch','taCmp'].forEach(k=>$('#'+k).value='');edited=false;document.querySelectorAll('.fst').forEach(e=>e.textContent='');update();go(1)});
@@ -1421,9 +1445,7 @@ $('#pdfBtn').addEventListener('click',savePdf);
 {const dz=document.querySelector('.drop.cmp'),inp=dz.querySelector('input');
  const take=f=>readCmpFile(f);
  inp.addEventListener('change',e=>{take(e.target.files[0]);e.target.value=''});
- ['dragenter','dragover'].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.add('on')}));
- ['dragleave','drop'].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.remove('on')}));
- dz.addEventListener('drop',e=>take(e.dataTransfer.files[0]));}
+}
 $('#print').addEventListener('click',()=>{saveHist();try{window.print()}catch(e){}});
 const copy=async(t,el,msg)=>{try{await navigator.clipboard.writeText(t);el.className='st ok';el.textContent=msg}catch(e){el.className='st bad';el.textContent='복사가 막혀 있어요. 직접 선택해 복사해 주세요.'}};
 $('#copyTxt').addEventListener('click',()=>{const txt=[$('#p1 h2').textContent,...[1,2,3].map(k=>$('#adv'+k).previousElementSibling.textContent+'\n'+[...$('#adv'+k).querySelectorAll('li')].map(l=>'- '+l.textContent).join('\n'))].join('\n\n');copy(txt,$('#toolSt'),'보고서 글을 복사했어요.')});
